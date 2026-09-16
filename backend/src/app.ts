@@ -8,6 +8,7 @@ import { errorHandler } from './middlewares/error.middleware';
 import { NotFoundError } from './errors/AppError';
 import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
+import trelloRoutes from './routes/trello.routes';
 
 const app: Application = express();
 
@@ -31,6 +32,7 @@ app.get('/api/v1/health', (req: Request, res: Response) => {
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/workspaces', workspaceRoutes);
+app.use('/api/v1/trello', trelloRoutes);
 
 // 404 Handler
 app.use((req: Request, res: Response, next: NextFunction) => {

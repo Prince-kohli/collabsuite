@@ -1,99 +1,60 @@
 import { Request, Response, NextFunction } from 'express';
-import { User } from '../models/user.model';
-import { ConflictError, UnauthorizedError, BadRequestError } from '../errors/AppError';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken, revokeRefreshToken } from '../utils/jwt.util';
-import { logger } from '../utils/logger';
+import { AuthService } from '../services/auth.service';
+import { UnauthorizedError } from '../errors/AppError';
 
 /**
- * Register a new user account.
+ * Controller handler for user registration.
  */
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { name, email, password } = req.body;
+    const result = await AuthService.register(name, email, password);
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      throw new ConflictError('User with this email already exists');
-    }
-
-    const user = await User.create({ name, email, password });
-
-    const payload = { userId: user._id.toString(), email: user.email };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = await generateRefreshToken(payload);
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-
-    logger.info(`User registered successfully: ${user.email}`);
-
-    res.status(201).json({
-      success: true,
-      statusCode: 201,
-      message: 'User registered successfully',
-      data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar
-        },
-        accessToken,
-        refreshToken
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Authenticate existing user and return tokens.
- */
-export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email }).select('+password');
-    if (!user) {
-      throw new UnauthorizedError('Invalid email or password');
-    }
-
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedError('Invalid email or password');
-    }
-
-    const payload = { userId: user._id.toString(), email: user.email };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = await generateRefreshToken(payload);
-
-    res.cookie('refreshToken', refreshToken, {
+    res.cookie('refreshToken', result.tokens.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    logger.info(`User logged in successfully: ${user.email}`);
+    res.status(201).json({
+      success: true,
+      statusCode: 201,
+      message: 'User registered successfully',
+      data: {
+        user: result.user,
+        accessToken: result.tokens.accessToken,
+        refreshToken: result.tokens.refreshToken
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Controller handler for user login.
+ */
+export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { email, password } = req.body;
+    const result = await AuthService.login(email, password);
+
+    res.cookie('refreshToken', result.tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
 
     res.status(200).json({
       success: true,
       statusCode: 200,
       message: 'User logged in successfully',
       data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar
-        },
-        accessToken,
-        refreshToken
+        user: result.user,
+        accessToken: result.tokens.accessToken,
+        refreshToken: result.tokens.refreshToken
       }
     });
   } catch (error) {
@@ -102,25 +63,18 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
 };
 
 /**
- * Issue a new access token using a valid refresh token.
+ * Controller handler to refresh access token.
  */
 export const refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const token = req.body.refreshToken || req.cookies?.refreshToken;
-    if (!token) {
-      throw new BadRequestError('Refresh token required');
-    }
-
-    const payload = await verifyRefreshToken(token);
-    const newAccessToken = generateAccessToken({ userId: payload.userId, email: payload.email });
+    const accessToken = await AuthService.refreshAccessToken(token);
 
     res.status(200).json({
       success: true,
       statusCode: 200,
       message: 'Access token refreshed successfully',
-      data: {
-        accessToken: newAccessToken
-      }
+      data: { accessToken }
     });
   } catch (error) {
     next(error);
@@ -128,12 +82,12 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
 };
 
 /**
- * Revoke session and logout user.
+ * Controller handler to logout user.
  */
 export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (req.user) {
-      await revokeRefreshToken(req.user.userId);
+      await AuthService.logout(req.user.userId);
     }
 
     res.clearCookie('refreshToken');
@@ -150,7 +104,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
 };
 
 /**
- * Get current authenticated user profile.
+ * Controller handler to fetch current user profile.
  */
 export const getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -158,10 +112,7 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
       throw new UnauthorizedError('User context missing');
     }
 
-    const user = await User.findById(req.user.userId);
-    if (!user) {
-      throw new UnauthorizedError('User not found');
-    }
+    const user = await AuthService.getProfile(req.user.userId);
 
     res.status(200).json({
       success: true,
