@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
 import trelloRoutes from './routes/trello.routes';
 import docRoutes from './routes/doc.routes';
+import slackRoutes from './routes/slack.routes';
 
 const app: Application = express();
 
@@ -33,6 +34,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/workspaces', workspaceRoutes);
 app.use('/api/v1/trello', trelloRoutes);
 app.use('/api/v1/docs', docRoutes);
+app.use('/api/v1/slack', slackRoutes);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new NotFoundError(`Route ${req.originalUrl} not found`));
