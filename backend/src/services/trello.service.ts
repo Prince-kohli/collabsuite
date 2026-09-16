@@ -33,13 +33,11 @@ export class TrelloService {
   public static async getBoardDetails(boardId: string): Promise<{ board: IBoard; lists: IList[]; cards: ICard[] }> {
     const cacheKey = `board_cache:${boardId}`;
 
-    // 1. Check Redis Cache
     const cachedData = await redisClient.get(cacheKey);
     if (cachedData) {
       return JSON.parse(cachedData);
     }
 
-    // 2. Database Fetch
     const board = await Board.findById(boardId);
     if (!board) {
       throw new NotFoundError('Board not found');
@@ -49,8 +47,6 @@ export class TrelloService {
     const cards = await Card.find({ boardId }).sort({ position: 1 }).populate('assignees', 'name email avatar');
 
     const result = { board, lists, cards };
-
-    // 3. Cache in Redis for 5 minutes
     await redisClient.set(cacheKey, JSON.stringify(result), 'EX', 300);
 
     return result;
@@ -103,23 +99,24 @@ export class TrelloService {
   }
 
   /**
-   * Move or reorder a card using MongoDB ACID Transactions.
+   * Move or reorder a card across lists (ACID Transaction with Standalone fallback).
    */
   public static async moveCard(cardId: string, targetListId: string, newPosition: number): Promise<ICard> {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const card = await Card.findById(cardId);
+    if (!card) {
+      throw new NotFoundError('Card not found');
+    }
+
+    const currentListId = card.listId.toString();
+    const boardId = card.boardId.toString();
+
+    let session: mongoose.ClientSession | null = null;
 
     try {
-      const card = await Card.findById(cardId).session(session);
-      if (!card) {
-        throw new NotFoundError('Card not found');
-      }
-
-      const currentListId = card.listId.toString();
-      const boardId = card.boardId.toString();
+      session = await mongoose.startSession();
+      session.startTransaction();
 
       if (currentListId === targetListId) {
-        // Reordering within same list
         await Card.updateMany(
           { listId: currentListId, position: { $gte: newPosition } },
           { $inc: { position: 1 } },
@@ -128,7 +125,6 @@ export class TrelloService {
         card.position = newPosition;
         await card.save({ session });
       } else {
-        // Moving to a different list
         await Card.updateMany(
           { listId: currentListId, position: { $gt: card.position } },
           { $inc: { position: -1 } },
@@ -148,15 +144,44 @@ export class TrelloService {
 
       await session.commitTransaction();
       session.endSession();
+    } catch (err: any) {
+      if (session) {
+        await session.abortTransaction().catch(() => {});
+        session.endSession();
+      }
 
-      await this.invalidateBoardCache(boardId);
-      logger.info(`Card ${cardId} moved to list ${targetListId} at position ${newPosition}`);
+      // If standalone MongoDB (no Replica Set), execute standard non-transactional atomic updates
+      if (err.message && err.message.includes('Transaction numbers are only allowed')) {
+        if (currentListId === targetListId) {
+          await Card.updateMany(
+            { listId: currentListId, position: { $gte: newPosition } },
+            { $inc: { position: 1 } }
+          );
+          card.position = newPosition;
+          await card.save();
+        } else {
+          await Card.updateMany(
+            { listId: currentListId, position: { $gt: card.position } },
+            { $inc: { position: -1 } }
+          );
 
-      return card;
-    } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
-      throw error;
+          await Card.updateMany(
+            { listId: targetListId, position: { $gte: newPosition } },
+            { $inc: { position: 1 } }
+          );
+
+          card.listId = new mongoose.Types.ObjectId(targetListId);
+          card.position = newPosition;
+          await card.save();
+        }
+      } else {
+        throw err;
+      }
     }
+
+    await this.invalidateBoardCache(boardId);
+    logger.info(`Card ${cardId} moved to list ${targetListId} at position ${newPosition}`);
+
+    return card;
   }
 }

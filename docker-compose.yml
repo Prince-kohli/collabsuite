@@ -5,6 +5,7 @@ services:
     image: mongo:7.0
     container_name: collabsuite-mongo
     restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     environment:
