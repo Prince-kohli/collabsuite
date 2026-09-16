@@ -9,10 +9,10 @@ import { NotFoundError } from './errors/AppError';
 import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
 import trelloRoutes from './routes/trello.routes';
+import docRoutes from './routes/doc.routes';
 
 const app: Application = express();
 
-// Security and parser middlewares
 app.use(helmet());
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
 app.use(compression());
@@ -20,7 +20,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// API Endpoints
 app.get('/api/v1/health', (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
@@ -33,13 +32,12 @@ app.get('/api/v1/health', (req: Request, res: Response) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/workspaces', workspaceRoutes);
 app.use('/api/v1/trello', trelloRoutes);
+app.use('/api/v1/docs', docRoutes);
 
-// 404 Handler
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new NotFoundError(`Route ${req.originalUrl} not found`));
 });
 
-// Global Error Handler
 app.use(errorHandler);
 
 export default app;
