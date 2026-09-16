@@ -3,10 +3,13 @@ import app from './app';
 import { config } from './config/env';
 import { connectDatabase } from './config/db';
 import { connectRedis } from './config/redis';
+import { initializeSocketIO } from './sockets/socket.handler';
 import { logger } from './utils/logger';
 
-
 const server = http.createServer(app);
+
+// Initialize real-time Socket.io server
+export const io = initializeSocketIO(server);
 
 const startServer = async (): Promise<void> => {
   await connectDatabase();
