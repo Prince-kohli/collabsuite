@@ -1,26 +1,39 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import { connectSocket, disconnectSocket } from '../../api/socket';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { CreateWorkspaceModal } from '../workspace/CreateWorkspaceModal';
+import { SearchModal } from '../common/SearchModal';
 
 
 export const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const { fetchWorkspaces, isLoading } = useWorkspaceStore();
 
   useEffect(() => {
     fetchWorkspaces();
+    connectSocket();
+
+    return () => {
+      disconnectSocket();
+    };
   }, [fetchWorkspaces]);
 
-  // Listen to custom create workspace event
+  // Global Keyboard Shortcut (Cmd+K / Ctrl+K)
   useEffect(() => {
-    const handleOpenModal = () => setIsCreateModalOpen(true);
-    window.addEventListener('collabsuite:open-create-workspace-modal', handleOpenModal);
-    return () => window.removeEventListener('collabsuite:open-create-workspace-modal', handleOpenModal);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchModalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   return (
@@ -35,7 +48,7 @@ export const DashboardLayout = () => {
         <div className="flex-1 flex flex-col min-w-0">
           <Navbar
             onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-            onOpenSearchModal={() => {}}
+            onOpenSearchModal={() => setIsSearchModalOpen(true)}
           />
 
           <main className="flex-1 p-6 overflow-y-auto">
@@ -49,10 +62,15 @@ export const DashboardLayout = () => {
           </main>
         </div>
 
-        {/* Global Create Workspace Modal */}
+        {/* Global Modals */}
         <CreateWorkspaceModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
+        />
+
+        <SearchModal
+          isOpen={isSearchModalOpen}
+          onClose={() => setIsSearchModalOpen(false)}
         />
       </div>
     </ErrorBoundary>
