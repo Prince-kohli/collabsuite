@@ -87,3 +87,24 @@ export interface Doc {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Channel {
+  _id: string;
+  workspaceId: string;
+  name: string;
+  topic?: string;
+  isPrivate?: boolean;
+  members?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Message {
+  _id: string;
+  channelId: string;
+  senderId: User | string;
+  content: string;
+  attachments?: any[];
+  createdAt?: string;
+  updatedAt?: string;
+}
