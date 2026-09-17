@@ -62,3 +62,28 @@ export interface Board {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface DocTreeNode {
+  _id: string;
+  title: string;
+  icon?: string;
+  parentDocId?: string | null;
+  children: DocTreeNode[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Doc {
+  _id: string;
+  workspaceId: string;
+  authorId: User | string;
+  title: string;
+  content?: string;
+  icon?: string;
+  coverImage?: string;
+  parentDocId?: string | null;
+  isArchived?: boolean;
+  isPublic?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
