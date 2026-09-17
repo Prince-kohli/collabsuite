@@ -9,6 +9,7 @@ import { WorkspaceOverviewPage } from './pages/WorkspaceOverviewPage';
 import { WorkspaceSettingsPage } from './pages/WorkspaceSettingsPage';
 import { BoardListPage } from './pages/BoardListPage';
 import { BoardDetailPage } from './pages/BoardDetailPage';
+import { DocPage } from './pages/DocPage';
 import { useThemeStore } from './store/useThemeStore';
 import { useWorkspaceStore } from './store/useWorkspaceStore';
 import { DashboardLayout } from './components/layout/DashboardLayout';
@@ -56,15 +57,10 @@ function App() {
             <Route path="/workspaces/:workspaceId/boards" element={<BoardListPage />} />
             <Route path="/workspaces/:workspaceId/boards/:boardId" element={<BoardDetailPage />} />
 
-            <Route
-              path="/workspaces/:workspaceId/docs"
-              element={
-                <div className="p-8 text-center text-zinc-500 dark:text-zinc-400">
-                  <h2 className="text-base font-semibold mb-1 text-zinc-800 dark:text-zinc-200">Docs & Wiki Module</h2>
-                  <p className="text-xs">Coming up in Phase 11 (Notion Engine)</p>
-                </div>
-              }
-            />
+            {/* Notion / Docs Engine Routes */}
+            <Route path="/workspaces/:workspaceId/docs" element={<DocPage />} />
+            <Route path="/workspaces/:workspaceId/docs/:docId" element={<DocPage />} />
+
             <Route
               path="/workspaces/:workspaceId/channels"
               element={
