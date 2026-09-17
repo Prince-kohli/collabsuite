@@ -10,6 +10,7 @@ import { WorkspaceSettingsPage } from './pages/WorkspaceSettingsPage';
 import { BoardListPage } from './pages/BoardListPage';
 import { BoardDetailPage } from './pages/BoardDetailPage';
 import { DocPage } from './pages/DocPage';
+import { SlackPage } from './pages/SlackPage';
 import { useThemeStore } from './store/useThemeStore';
 import { useWorkspaceStore } from './store/useWorkspaceStore';
 import { DashboardLayout } from './components/layout/DashboardLayout';
@@ -61,15 +62,9 @@ function App() {
             <Route path="/workspaces/:workspaceId/docs" element={<DocPage />} />
             <Route path="/workspaces/:workspaceId/docs/:docId" element={<DocPage />} />
 
-            <Route
-              path="/workspaces/:workspaceId/channels"
-              element={
-                <div className="p-8 text-center text-zinc-500 dark:text-zinc-400">
-                  <h2 className="text-base font-semibold mb-1 text-zinc-800 dark:text-zinc-200">Channels & Chat Module</h2>
-                  <p className="text-xs">Coming up in Phase 12 (Slack Engine)</p>
-                </div>
-              }
-            />
+            {/* Slack / Realtime Channels Routes */}
+            <Route path="/workspaces/:workspaceId/channels" element={<SlackPage />} />
+            <Route path="/workspaces/:workspaceId/channels/:channelId" element={<SlackPage />} />
           </Route>
         </Route>
 
