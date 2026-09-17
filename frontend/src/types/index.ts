@@ -29,3 +29,36 @@ export interface ApiResponse<T = any> {
   message: string;
   data: T;
 }
+
+export interface Card {
+  _id: string;
+  title: string;
+  description?: string;
+  listId: string;
+  boardId: string;
+  position: number;
+  labels?: string[];
+  dueDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface List {
+  _id: string;
+  name: string;
+  boardId: string;
+  position: number;
+  cards?: Card[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Board {
+  _id: string;
+  name: string;
+  description?: string;
+  workspaceId: string;
+  lists?: List[];
+  createdAt?: string;
+  updatedAt?: string;
+}
