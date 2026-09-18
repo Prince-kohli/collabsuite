@@ -1,11 +1,15 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
+export type ChannelType = 'channel' | 'dm';
+
 export interface IChannel extends Document {
   _id: Types.ObjectId;
   workspaceId: Types.ObjectId;
   name: string;
   topic?: string;
   isPrivate: boolean;
+  type: ChannelType;
+  createdBy: Types.ObjectId;
   members: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
@@ -35,6 +39,17 @@ const channelSchema = new Schema<IChannel>(
       type: Boolean,
       default: false
     },
+    type: {
+      type: String,
+      enum: ['channel', 'dm'],
+      default: 'channel',
+      index: true
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
     members: [
       {
         type: Schema.Types.ObjectId,
@@ -47,7 +62,7 @@ const channelSchema = new Schema<IChannel>(
   }
 );
 
-// Ensure unique channel name within a workspace
+// Unique channel name per workspace (only for normal channels)
 channelSchema.index({ workspaceId: 1, name: 1 }, { unique: true });
 
 export const Channel = model<IChannel>('Channel', channelSchema);

@@ -2,17 +2,28 @@ import { z } from 'zod';
 
 export const createChannelSchema = z.object({
   body: z.object({
-    workspaceId: z.string().min(1, 'Workspace ID is required'),
-    name: z.string().min(2, 'Channel name must be at least 2 characters').max(80),
+    workspaceId: z.string().min(1, 'workspaceId is required'),
+    name: z
+      .string()
+      .min(1, 'Channel name is required')
+      .max(80)
+      .regex(/^[a-z0-9-_]+$/, 'Channel name must be lowercase letters, numbers, - or _'),
     topic: z.string().max(250).optional(),
     isPrivate: z.boolean().optional()
   })
 });
 
+export const createDMSchema = z.object({
+  body: z.object({
+    workspaceId: z.string().min(1, 'workspaceId is required'),
+    targetUserId: z.string().min(1, 'targetUserId is required')
+  })
+});
+
 export const sendMessageSchema = z.object({
   body: z.object({
-    channelId: z.string().min(1, 'Channel ID is required'),
-    content: z.string().min(1, 'Message content cannot be empty'),
+    channelId: z.string().min(1, 'channelId is required'),
+    content: z.string().min(1, 'Message content is required').max(5000),
     attachments: z
       .array(
         z.object({

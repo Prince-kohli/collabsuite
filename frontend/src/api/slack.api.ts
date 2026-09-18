@@ -8,6 +8,11 @@ export interface CreateChannelPayload {
   isPrivate?: boolean;
 }
 
+export interface CreateDMPayload {
+  workspaceId: string;
+  targetUserId: string;
+}
+
 export interface SendMessagePayload {
   channelId: string;
   content: string;
@@ -20,19 +25,26 @@ export interface CursorPaginatedMessagesResponse {
   hasMore: boolean;
 }
 
-/**
- * Create a new channel in a workspace.
- */
 export const createChannelApi = async (
   payload: CreateChannelPayload
 ): Promise<ApiResponse<{ channel: Channel }>> => {
-  const response = await apiClient.post<ApiResponse<{ channel: Channel }>>('/slack/channels', payload);
+  const response = await apiClient.post<ApiResponse<{ channel: Channel }>>(
+    '/slack/channels',
+    payload
+  );
   return response.data;
 };
 
-/**
- * Get all channels accessible by the user in a workspace.
- */
+export const createOrGetDMApi = async (
+  payload: CreateDMPayload
+): Promise<ApiResponse<{ channel: Channel }>> => {
+  const response = await apiClient.post<ApiResponse<{ channel: Channel }>>(
+    '/slack/dms',
+    payload
+  );
+  return response.data;
+};
+
 export const getWorkspaceChannelsApi = async (
   workspaceId: string
 ): Promise<ApiResponse<{ channels: Channel[] }>> => {
@@ -42,19 +54,25 @@ export const getWorkspaceChannelsApi = async (
   return response.data;
 };
 
-/**
- * Send a chat message to a channel.
- */
-export const sendMessageApi = async (
-  payload: SendMessagePayload
-): Promise<ApiResponse<{ message: Message }>> => {
-  const response = await apiClient.post<ApiResponse<{ message: Message }>>('/slack/messages', payload);
+export const deleteChannelApi = async (
+  channelId: string
+): Promise<ApiResponse<null>> => {
+  const response = await apiClient.delete<ApiResponse<null>>(
+    `/slack/channels/${channelId}`
+  );
   return response.data;
 };
 
-/**
- * Get channel messages with cursor pagination.
- */
+export const sendMessageApi = async (
+  payload: SendMessagePayload
+): Promise<ApiResponse<{ message: Message }>> => {
+  const response = await apiClient.post<ApiResponse<{ message: Message }>>(
+    '/slack/messages',
+    payload
+  );
+  return response.data;
+};
+
 export const getChannelMessagesApi = async (
   channelId: string,
   cursor?: string,
@@ -62,9 +80,7 @@ export const getChannelMessagesApi = async (
 ): Promise<ApiResponse<CursorPaginatedMessagesResponse>> => {
   const params = new URLSearchParams();
   params.append('limit', limit.toString());
-  if (cursor) {
-    params.append('cursor', cursor);
-  }
+  if (cursor) params.append('cursor', cursor);
 
   const response = await apiClient.get<ApiResponse<CursorPaginatedMessagesResponse>>(
     `/slack/channels/${channelId}/messages?${params.toString()}`

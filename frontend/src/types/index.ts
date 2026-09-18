@@ -97,6 +97,8 @@ export interface Channel {
   members?: string[];
   createdAt?: string;
   updatedAt?: string;
+  type?: 'channel' | 'dm';
+createdBy?: string | { _id: string; name?: string };
 }
 
 export interface Message {
