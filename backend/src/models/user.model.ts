@@ -8,6 +8,9 @@ export interface IUser extends Document {
   password?: string;
   avatar?: string;
   isActive: boolean;
+  isEmailVerified: boolean;
+  emailVerificationOtp?: string | null;
+  emailVerificationOtpExpires?: Date | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +45,18 @@ const userSchema = new Schema<IUser>(
     isActive: {
       type: Boolean,
       default: true
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false
+    },
+    emailVerificationOtp: {
+      type: String,
+      default: null
+    },
+    emailVerificationOtpExpires: {
+      type: Date,
+      default: null
     }
   },
   {
@@ -49,9 +64,6 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-/**
- * Pre-save hook to hash user password using bcrypt.
- */
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) {
     return next();
@@ -61,9 +73,6 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-/**
- * Method to compare candidate password with stored hash.
- */
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);

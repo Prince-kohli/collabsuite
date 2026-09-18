@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 
-// Accessing environment variable using Vite's import.meta.env
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:5000/api/v1';
 
 export const apiClient = axios.create({
@@ -18,7 +17,8 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().accessToken;
-    if (token && config.headers) {
+    if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -47,6 +47,7 @@ apiClient.interceptors.response.use(
         const newAccessToken = refreshResponse.data.data.accessToken;
         useAuthStore.getState().setAccessToken(newAccessToken);
 
+        originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {

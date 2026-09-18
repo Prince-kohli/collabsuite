@@ -2,7 +2,7 @@ import { apiClient } from './axios';
 import type { ApiResponse, Board, List, Card } from '../types';
 
 export interface CreateBoardPayload {
-  name: string;
+  title: string;
   workspaceId: string;
   description?: string;
 }

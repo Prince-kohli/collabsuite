@@ -6,6 +6,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js', 'json'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.ts', '!src/server.ts', '!src/config/*.ts'],
+  setupFiles: ['dotenv/config'],
   forceExit: true,
   clearMocks: true,
   resetMocks: true,

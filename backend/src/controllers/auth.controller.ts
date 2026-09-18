@@ -2,50 +2,65 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service';
 import { UnauthorizedError } from '../errors/AppError';
 
-/**
- * Controller handler for user registration.
- */
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { name, email, password } = req.body;
     const result = await AuthService.register(name, email, password);
 
-    res.cookie('refreshToken', result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-
     res.status(201).json({
       success: true,
       statusCode: 201,
-      message: 'User registered successfully',
-      data: {
-        user: result.user,
-        accessToken: result.tokens.accessToken,
-        refreshToken: result.tokens.refreshToken
-      }
+      message: result.message,
+      data: { email: result.email }
     });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Controller handler for user login.
- */
+export const verifyOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { email, otp } = req.body;
+    await AuthService.verifyOtp(email, otp);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'OTP verified successfully. You can now log in.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resendOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { email } = req.body;
+    await AuthService.resendOtp(email);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'A new OTP has been sent to your email'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { email, password } = req.body;
     const result = await AuthService.login(email, password);
 
-    res.cookie('refreshToken', result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    if (result.tokens) {
+      res.cookie('refreshToken', result.tokens.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -53,8 +68,8 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       message: 'User logged in successfully',
       data: {
         user: result.user,
-        accessToken: result.tokens.accessToken,
-        refreshToken: result.tokens.refreshToken
+        accessToken: result.tokens?.accessToken,
+        refreshToken: result.tokens?.refreshToken
       }
     });
   } catch (error) {
@@ -62,9 +77,6 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
   }
 };
 
-/**
- * Controller handler to refresh access token.
- */
 export const refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const token = req.body.refreshToken || req.cookies?.refreshToken;
@@ -81,9 +93,6 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-/**
- * Controller handler to logout user.
- */
 export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (req.user) {
@@ -103,9 +112,6 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
   }
 };
 
-/**
- * Controller handler to fetch current user profile.
- */
 export const getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (!req.user) {
@@ -124,6 +130,7 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
           name: user.name,
           email: user.email,
           avatar: user.avatar,
+          isEmailVerified: user.isEmailVerified,
           createdAt: user.createdAt
         }
       }

@@ -28,6 +28,7 @@ export const Sidebar = ({ isOpen, onClose, onOpenCreateWorkspaceModal }: Sidebar
     setIsWorkspaceMenuOpen(false);
     await setActiveWorkspace(workspaceId);
     navigate(`/workspaces/${workspaceId}`);
+    onClose();
   };
 
   const navItems = [
@@ -81,71 +82,76 @@ export const Sidebar = ({ isOpen, onClose, onOpenCreateWorkspaceModal }: Sidebar
 
   return (
     <>
-      {/* Mobile Backdrop */}
       {isOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 bg-black/40 z-40 md:hidden backdrop-blur-xs"
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
         />
       )}
 
-      {/* Sidebar Container */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 flex flex-col justify-between transition-transform duration-200 ease-in-out ${
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div>
-          {/* Workspace Switcher Header */}
-          <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 relative" ref={dropdownRef}>
+          <div className="p-3 border-b border-slate-200 relative" ref={dropdownRef}>
             <button
+              type="button"
               onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
-              className="w-full flex items-center justify-between p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer text-left"
+              className="w-full flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer text-left"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-6 h-6 rounded bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
                   {activeWorkspace?.name ? activeWorkspace.name.charAt(0).toUpperCase() : 'W'}
                 </div>
                 <div className="truncate">
-                  <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                  <p className="text-xs font-semibold text-slate-900 truncate">
                     {activeWorkspace?.name || 'Select Workspace'}
                   </p>
                 </div>
               </div>
-              <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4 4 4-4" />
               </svg>
             </button>
 
-            {/* Workspace Selector Dropdown */}
             {isWorkspaceMenuOpen && (
-              <div className="absolute left-3 right-3 mt-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
-                <div className="px-3 py-1.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
+              <div className="absolute left-3 right-3 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                <div className="px-3 py-1.5 text-[11px] font-medium text-slate-400 uppercase tracking-wider">
                   Workspaces
                 </div>
+
+                {workspaces.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-slate-500">No workspaces found</p>
+                )}
 
                 {workspaces.map((ws) => (
                   <button
                     key={ws._id}
+                    type="button"
                     onClick={() => handleSwitchWorkspace(ws._id)}
-                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer ${
-                      activeWorkspace?._id === ws._id ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-zinc-700 dark:text-zinc-300'
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-100 transition-colors cursor-pointer ${
+                      activeWorkspace?._id === ws._id
+                        ? 'font-semibold text-indigo-600'
+                        : 'text-slate-700'
                     }`}
                   >
                     <span className="truncate">{ws.name}</span>
                     {activeWorkspace?._id === ws._id && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" />
                     )}
                   </button>
                 ))}
 
-                <div className="border-t border-zinc-100 dark:border-zinc-800 mt-1 pt-1">
+                <div className="border-t border-slate-100 mt-1 pt-1">
                   <button
+                    type="button"
                     onClick={() => {
                       setIsWorkspaceMenuOpen(false);
                       onOpenCreateWorkspaceModal();
                     }}
-                    className="w-full text-left px-3 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 flex items-center gap-2 cursor-pointer"
+                    className="w-full text-left px-3 py-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-2 cursor-pointer"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -157,18 +163,18 @@ export const Sidebar = ({ isOpen, onClose, onOpenCreateWorkspaceModal }: Sidebar
             )}
           </div>
 
-          {/* Nav Items */}
           <nav className="p-3 space-y-1">
             {navItems.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}
                 end={item.name === 'Overview'}
+                onClick={onClose}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                     isActive
-                      ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100'
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                   }`
                 }
               >
@@ -179,9 +185,8 @@ export const Sidebar = ({ isOpen, onClose, onOpenCreateWorkspaceModal }: Sidebar
           </nav>
         </div>
 
-        {/* Footer Brand Info */}
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-          <p className="text-[11px] text-zinc-400">CollabSuite v1.0</p>
+        <div className="p-4 border-t border-slate-200">
+          <p className="text-[11px] text-slate-400">CollabSuite v1.0</p>
         </div>
       </aside>
     </>
