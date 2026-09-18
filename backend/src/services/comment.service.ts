@@ -1,5 +1,6 @@
 import { Comment, IComment } from '../models/comment.model';
 import { Card } from '../models/card.model';
+import { Board } from '../models/board.model';
 import { Activity } from '../models/activity.model';
 import { NotFoundError } from '../errors/AppError';
 import { NotificationService } from './notification.service';
@@ -7,21 +8,22 @@ import { emitToCard } from '../sockets/socket.handler';
 import { logger } from '../utils/logger';
 
 export class CommentService {
-  /**
-   * Extract @mention patterns like @email or raw ObjectIds from content (simple approach).
-   * Frontend should also send mentions: string[] of userIds.
-   */
   public static async addComment(
     cardId: string,
     userId: string,
     content: string,
     mentionIds: string[] = [],
-    link?: string
+    _customLink?: string
   ): Promise<IComment> {
     const card = await Card.findById(cardId);
     if (!card) {
       throw new NotFoundError('Card not found');
     }
+
+    const board = await Board.findById(card.boardId).select('workspaceId');
+    const notificationLink = board
+      ? `/workspaces/${board.workspaceId}/boards/${card.boardId}?cardId=${card._id}`
+      : undefined;
 
     const uniqueMentions = [...new Set(mentionIds.filter((id) => id && id !== userId))];
 
@@ -36,20 +38,18 @@ export class CommentService {
       .populate('userId', 'name email avatar')
       .populate('mentions', 'name email avatar');
 
-    // Live comment to card room
     emitToCard(cardId, 'comment:new', populated);
 
-    // Activity log
-    await Activity.create({
-      workspaceId: card.boardId, // temporary; prefer board.workspaceId if available
-      boardId: card.boardId,
-      cardId: card._id,
-      userId,
-      action: 'comment_added',
-      details: `Commented on card "${card.title}"`
-    }).catch(() => {
-      // non-blocking
-    });
+    if (board) {
+      await Activity.create({
+        workspaceId: board.workspaceId,
+        boardId: card.boardId,
+        cardId: card._id,
+        userId,
+        action: 'comment_added',
+        details: `Commented on card "${card.title}"`
+      }).catch(() => {});
+    }
 
     // Notify mentioned users
     for (const mentionedUserId of uniqueMentions) {
@@ -59,12 +59,12 @@ export class CommentService {
         type: 'mention',
         title: 'You were mentioned',
         message: `You were mentioned in a comment on card "${card.title}"`,
-        link: link || undefined,
+        link: notificationLink,
         sendEmail: true
       });
     }
 
-    // Notify assignees (except actor and already mentioned)
+    // Notify assignees
     const assigneeIds = (card.assignees || []).map((id) => id.toString());
     for (const assigneeId of assigneeIds) {
       if (assigneeId === userId || uniqueMentions.includes(assigneeId)) continue;
@@ -74,7 +74,7 @@ export class CommentService {
         type: 'comment',
         title: 'New comment on your card',
         message: `New comment on "${card.title}"`,
-        link: link || undefined,
+        link: notificationLink,
         sendEmail: true
       });
     }
@@ -97,7 +97,7 @@ export class CommentService {
     }
 
     if (comment.userId.toString() !== userId) {
-      throw new NotFoundError('Comment not found'); // hide auth detail; or use ForbiddenError if you have it
+      throw new NotFoundError('Comment not found');
     }
 
     const cardId = comment.cardId.toString();

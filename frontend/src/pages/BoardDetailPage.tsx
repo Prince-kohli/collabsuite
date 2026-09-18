@@ -51,22 +51,18 @@ export const BoardDetailPage = () => {
   // Open card modal when URL has ?cardId=...
   useEffect(() => {
     const cardId = searchParams.get('cardId');
-    if (!cardId || isLoading) return;
-
-    const found = allCards.find((c) => c._id === cardId);
-    if (found) {
-      setSelectedCard(found);
+    if (!cardId) {
+      setSelectedCard(null);
+      return;
     }
-  }, [searchParams, allCards, isLoading]);
 
-  // Keep selected card in sync after store updates (edit/assign)
-  useEffect(() => {
-    if (!selectedCard) return;
-    const latest = allCards.find((c) => c._id === selectedCard._id);
-    if (latest) {
-      setSelectedCard(latest);
+    if (allCards.length > 0) {
+      const found = allCards.find((c) => c._id === cardId);
+      if (found) {
+        setSelectedCard(found);
+      }
     }
-  }, [allCards, selectedCard?._id]);
+  }, [searchParams, allCards]);
 
   const closeNotificationCard = () => {
     setSelectedCard(null);
@@ -252,7 +248,7 @@ export const BoardDetailPage = () => {
         onClose={() => setIsDeleteBoardModalOpen(false)}
       />
 
-      {/* Deep-link from notification */}
+      {/* Deep-link modal */}
       <CardDetailModal
         card={selectedCard}
         isOpen={!!selectedCard}
