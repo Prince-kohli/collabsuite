@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import { useBoardStore } from '../store/useBoardStore';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
 import { useToastStore } from '../store/useToastStore';
 import { KanbanColumn } from '../components/trello/KanbanColumn';
 import { ConfirmModal } from '../components/common/ConfirmModal';
+import { CardDetailModal } from '../components/trello/CardDetailModal';
+import type { Card } from '../types';
 
 export const BoardDetailPage = () => {
   const { workspaceId, boardId } = useParams<{ workspaceId: string; boardId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const showToast = useToastStore((state) => state.showToast);
   const { currentUserRole } = useWorkspaceStore();
 
@@ -31,9 +34,13 @@ export const BoardDetailPage = () => {
   const [isDeleteBoardModalOpen, setIsDeleteBoardModalOpen] = useState(false);
   const [isDeletingBoard, setIsDeletingBoard] = useState(false);
 
-  // RBAC
+  // Card opened from notification deep-link
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+
   const isViewer = currentUserRole === 'viewer';
   const canDeleteBoard = currentUserRole === 'owner' || currentUserRole === 'admin';
+
+  const allCards = useMemo(() => Object.values(cardsByListId).flat(), [cardsByListId]);
 
   useEffect(() => {
     if (boardId) {
@@ -41,9 +48,38 @@ export const BoardDetailPage = () => {
     }
   }, [boardId, fetchBoardDetails]);
 
+  // Open card modal when URL has ?cardId=...
+  useEffect(() => {
+    const cardId = searchParams.get('cardId');
+    if (!cardId || isLoading) return;
+
+    const found = allCards.find((c) => c._id === cardId);
+    if (found) {
+      setSelectedCard(found);
+    }
+  }, [searchParams, allCards, isLoading]);
+
+  // Keep selected card in sync after store updates (edit/assign)
+  useEffect(() => {
+    if (!selectedCard) return;
+    const latest = allCards.find((c) => c._id === selectedCard._id);
+    if (latest) {
+      setSelectedCard(latest);
+    }
+  }, [allCards, selectedCard?._id]);
+
+  const closeNotificationCard = () => {
+    setSelectedCard(null);
+    if (searchParams.get('cardId')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('cardId');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
   const handleDragEnd = (result: DropResult) => {
-    if (isViewer) return; // Viewers cannot drag
-    
+    if (isViewer) return;
+
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (
@@ -84,7 +120,7 @@ export const BoardDetailPage = () => {
   };
 
   const handleDeleteBoard = async () => {
-    if (!boardId) return;
+    if (!boardId || !canDeleteBoard) return;
     setIsDeletingBoard(true);
     try {
       await deleteBoard(boardId);
@@ -137,7 +173,12 @@ export const BoardDetailPage = () => {
             className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
             Delete Board
           </button>
@@ -209,6 +250,13 @@ export const BoardDetailPage = () => {
         isLoading={isDeletingBoard}
         onConfirm={handleDeleteBoard}
         onClose={() => setIsDeleteBoardModalOpen(false)}
+      />
+
+      {/* Deep-link from notification */}
+      <CardDetailModal
+        card={selectedCard}
+        isOpen={!!selectedCard}
+        onClose={closeNotificationCard}
       />
     </div>
   );

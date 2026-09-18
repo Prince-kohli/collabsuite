@@ -29,6 +29,9 @@ export const KanbanColumn = ({ list, cards, boardId }: KanbanColumnProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isViewer = currentUserRole === 'viewer';
+  // Only owner and admin can delete lists
+  const canDelete = currentUserRole === 'owner' || currentUserRole === 'admin';
+  const canEditList = !isViewer;
 
   const handleAddCard = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +55,7 @@ export const KanbanColumn = ({ list, cards, boardId }: KanbanColumnProps) => {
   };
 
   const handleDeleteList = async () => {
-    if (isViewer) return;
+    if (!canDelete) return;
     setIsDeleting(true);
     try {
       await deleteList(list._id);
@@ -66,7 +69,7 @@ export const KanbanColumn = ({ list, cards, boardId }: KanbanColumnProps) => {
   };
 
   const handleSaveListTitle = async () => {
-    if (isViewer) return;
+    if (!canEditList) return;
     const trimmed = listTitle.trim();
     if (!trimmed || trimmed === list.title) {
       setListTitle(list.title);
@@ -88,7 +91,7 @@ export const KanbanColumn = ({ list, cards, boardId }: KanbanColumnProps) => {
       <div className="w-72 shrink-0 bg-slate-100 border border-slate-200 rounded-xl flex flex-col max-h-full">
         <div className="p-3 flex items-center justify-between border-b border-slate-200 gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            {isEditingTitle && !isViewer ? (
+            {isEditingTitle && canEditList ? (
               <input
                 autoFocus
                 value={listTitle}
@@ -106,9 +109,11 @@ export const KanbanColumn = ({ list, cards, boardId }: KanbanColumnProps) => {
             ) : (
               <button
                 type="button"
-                onClick={() => !isViewer && setIsEditingTitle(true)}
-                className={`text-left text-xs font-bold text-slate-900 uppercase tracking-wide truncate ${!isViewer ? 'hover:text-indigo-600 cursor-pointer' : 'cursor-default'}`}
-                title={!isViewer ? "Click to rename" : ""}
+                onClick={() => canEditList && setIsEditingTitle(true)}
+                className={`text-left text-xs font-bold text-slate-900 uppercase tracking-wide truncate ${
+                  canEditList ? 'hover:text-indigo-600 cursor-pointer' : 'cursor-default'
+                }`}
+                title={canEditList ? 'Click to rename' : ''}
               >
                 {list.title}
               </button>
@@ -118,7 +123,7 @@ export const KanbanColumn = ({ list, cards, boardId }: KanbanColumnProps) => {
             </span>
           </div>
 
-          {!isViewer && (
+          {canDelete && (
             <button
               type="button"
               onClick={() => setIsDeleteConfirmOpen(true)}
@@ -126,7 +131,12 @@ export const KanbanColumn = ({ list, cards, boardId }: KanbanColumnProps) => {
               className="text-slate-400 hover:text-rose-600 p-1 rounded-md hover:bg-slate-200 transition-colors cursor-pointer shrink-0"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
               </svg>
             </button>
           )}
