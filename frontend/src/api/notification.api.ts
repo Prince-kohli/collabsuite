@@ -47,3 +47,21 @@ export const markAllNotificationsReadApi = async (): Promise<ApiResponse> => {
   const response = await apiClient.patch<ApiResponse>('/notifications/read-all');
   return response.data;
 };
+
+export const deleteNotificationApi = async (id: string): Promise<ApiResponse> => {
+  const response = await apiClient.delete<ApiResponse>(`/notifications/${id}`);
+  return response.data;
+};
+
+export const clearAllNotificationsApi = async (): Promise<ApiResponse> => {
+  const response = await apiClient.delete<ApiResponse>('/notifications/clear-all');
+  return response.data;
+};
+
+export const deleteManyNotificationsApi = async (ids: string[]): Promise<ApiResponse<{ deletedCount: number }>> => {
+  const response = await apiClient.post<ApiResponse<{ deletedCount: number }>>(
+    '/notifications/delete-many',
+    { ids }
+  );
+  return response.data;
+};

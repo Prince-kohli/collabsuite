@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import type { Card } from '../../types';
 import { useBoardStore } from '../../store/useBoardStore';
+import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { useToastStore } from '../../store/useToastStore';
 import { CardDetailModal } from './CardDetailModal';
 import { ConfirmModal } from '../common/ConfirmModal';
@@ -13,12 +14,17 @@ interface KanbanCardProps {
 
 export const KanbanCard = ({ card, index }: KanbanCardProps) => {
   const { deleteCard } = useBoardStore();
+  const { currentUserRole } = useWorkspaceStore();
   const showToast = useToastStore((state) => state.showToast);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const isViewer = currentUserRole === 'viewer';
+
   const handleDeleteCard = async () => {
+    if (isViewer) return;
     setIsDeleting(true);
     try {
       await deleteCard(card._id, card.listId);
@@ -33,7 +39,7 @@ export const KanbanCard = ({ card, index }: KanbanCardProps) => {
 
   return (
     <>
-      <Draggable draggableId={card._id} index={index}>
+      <Draggable draggableId={card._id} index={index} isDragDisabled={isViewer}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
@@ -41,22 +47,24 @@ export const KanbanCard = ({ card, index }: KanbanCardProps) => {
             {...provided.dragHandleProps}
             onClick={() => setIsModalOpen(true)}
             className={`group p-3 bg-white border border-slate-200 rounded-lg shadow-2xs hover:border-indigo-500 transition-all relative cursor-pointer ${
-              snapshot.isDragging ? 'shadow-lg border-indigo-500 rotate-1' : ''
+              snapshot.isDragging && !isViewer ? 'shadow-lg border-indigo-500 rotate-1' : ''
             }`}
           >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsDeleteConfirmOpen(true);
-              }}
-              aria-label="Delete card"
-              className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
+            {!isViewer && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDeleteConfirmOpen(true);
+                }}
+                aria-label="Delete card"
+                className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
 
             {card.labels && card.labels.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">

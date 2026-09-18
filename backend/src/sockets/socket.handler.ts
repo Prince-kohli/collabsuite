@@ -28,14 +28,20 @@ export const initializeSocketIO = (httpServer: HttpServer): Server => {
 
   ioInstance = io;
 
+  // Socket Authentication Middleware
   io.use((socket: AuthenticatedSocket, next) => {
     try {
-      const token =
+      let token =
         socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.split(' ')[1];
+        socket.handshake.headers?.authorization;
 
       if (!token) {
         return next(new Error('Authentication token missing in socket handshake'));
+      }
+
+      // Strip 'Bearer ' prefix if present
+      if (token.startsWith('Bearer ')) {
+        token = token.substring(7);
       }
 
       const payload = verifyAccessToken(token);
@@ -43,6 +49,7 @@ export const initializeSocketIO = (httpServer: HttpServer): Server => {
       socket.email = payload.email;
       next();
     } catch (error) {
+      logger.error(`Socket auth failed: ${error instanceof Error ? error.message : error}`);
       next(new Error('Authentication failed for socket connection'));
     }
   });
@@ -53,6 +60,7 @@ export const initializeSocketIO = (httpServer: HttpServer): Server => {
     // Personal room for notifications
     if (socket.userId) {
       socket.join(`user:${socket.userId}`);
+      logger.info(`User ${socket.userId} joined personal socket room: user:${socket.userId}`);
     }
 
     socket.on('join:channel', (channelId: string) => {

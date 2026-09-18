@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import { useNotificationStore } from '../../store/useNotificationStore';
 import { connectSocket, disconnectSocket } from '../../api/socket';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { Sidebar } from './Sidebar';
@@ -12,19 +13,22 @@ export const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  
   const { fetchWorkspaces, isLoading, workspaces } = useWorkspaceStore();
+  const { fetchNotifications, initSocketListeners } = useNotificationStore();
 
   useEffect(() => {
-    // Force light mode - remove any leftover dark class
     document.documentElement.classList.remove('dark');
 
     fetchWorkspaces();
+    fetchNotifications();
     connectSocket();
+    initSocketListeners();
 
     return () => {
       disconnectSocket();
     };
-  }, [fetchWorkspaces]);
+  }, [fetchWorkspaces, fetchNotifications, initSocketListeners]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

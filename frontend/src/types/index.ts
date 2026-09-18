@@ -108,3 +108,26 @@ export interface Message {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface CardAttachment {
+  _id?: string;
+  name: string;
+  url: string;
+  size?: number;
+  uploadedAt?: string;
+}
+
+export interface Card {
+  _id: string;
+  title: string;
+  description?: string;
+  listId: string;
+  boardId: string;
+  position: number;
+  labels?: string[];
+  dueDate?: string;
+  assignees?: Array<User | string | { _id: string; name: string; email: string; avatar?: string }>;
+  attachments?: CardAttachment[];
+  createdAt?: string;
+  updatedAt?: string;
+}

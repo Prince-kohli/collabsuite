@@ -1,3 +1,4 @@
+import { NotFoundError } from '../errors/AppError';
 import { Notification, INotification, NotificationType } from '../models/notification.model';
 import { User } from '../models/user.model';
 import { enqueueNotificationEmail } from '../queues/notification.queue';
@@ -104,5 +105,25 @@ export class NotificationService {
    */
   public static async markAllAsRead(userId: string): Promise<void> {
     await Notification.updateMany({ userId, isRead: false }, { isRead: true });
+  }
+  
+
+    public static async deleteOne(notificationId: string, userId: string): Promise<void> {
+    const result = await Notification.findOneAndDelete({ _id: notificationId, userId });
+    if (!result) {
+      throw new NotFoundError('Notification not found');
+    }
+  }
+
+  public static async clearAll(userId: string): Promise<void> {
+    await Notification.deleteMany({ userId });
+  }
+
+  public static async deleteMany(userId: string, ids: string[]): Promise<number> {
+    const result = await Notification.deleteMany({
+      userId,
+      _id: { $in: ids }
+    });
+    return result.deletedCount || 0;
   }
 }
