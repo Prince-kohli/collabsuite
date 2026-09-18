@@ -34,3 +34,12 @@ export const moveCardSchema = z.object({
     newPosition: z.number().nonnegative('Position must be 0 or greater')
   })
 });
+
+export const updateCardSchema = z.object({
+  body: z.object({
+    title: z.string().min(1).max(200).optional(),
+    description: z.string().optional(),
+    labels: z.array(z.string()).optional(),
+    dueDate: z.string().nullable().optional()
+  })
+});

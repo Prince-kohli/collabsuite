@@ -3,16 +3,26 @@ import {
   createBoard,
   getWorkspaceBoards,
   getBoardDetails,
+  deleteBoard,
   createList,
+  deleteList,
   createCard,
-  moveCard
+  updateCard,
+  uploadAttachment,
+  removeAttachment,
+  getCardActivities,
+  moveCard,
+  deleteCard
 } from '../controllers/trello.controller';
+import { addComment, getCardComments, deleteComment } from '../controllers/comment.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
+import { upload } from '../utils/upload.util';
 import {
   createBoardSchema,
   createListSchema,
   createCardSchema,
+  updateCardSchema,
   moveCardSchema
 } from '../validations/trello.validation';
 
@@ -20,46 +30,32 @@ const router = Router();
 
 router.use(authenticate);
 
-/**
- * @route   GET /api/v1/trello/boards?workspaceId=...
- * @desc    Get all boards in a workspace
- * @access  Private
- */
+// Boards
 router.get('/boards', getWorkspaceBoards);
-
-/**
- * @route   POST /api/v1/trello/boards
- * @desc    Create a new board in a workspace
- * @access  Private
- */
 router.post('/boards', validate(createBoardSchema), createBoard);
-
-/**
- * @route   GET /api/v1/trello/boards/:id
- * @desc    Get board details with lists and cards (Redis Cached)
- * @access  Private
- */
 router.get('/boards/:id', getBoardDetails);
+router.delete('/boards/:id', deleteBoard);
 
-/**
- * @route   POST /api/v1/trello/lists
- * @desc    Create a new list in a board
- * @access  Private
- */
+// Lists
 router.post('/lists', validate(createListSchema), createList);
+router.delete('/lists/:id', deleteList);
 
-/**
- * @route   POST /api/v1/trello/cards
- * @desc    Create a new card in a list
- * @access  Private
- */
+// Cards
 router.post('/cards', validate(createCardSchema), createCard);
-
-/**
- * @route   PATCH /api/v1/trello/cards/:id/move
- * @desc    Move/reorder a card across lists using MongoDB ACID transaction
- * @access  Private
- */
+router.patch('/cards/:id', validate(updateCardSchema), updateCard);
 router.patch('/cards/:id/move', validate(moveCardSchema), moveCard);
+router.delete('/cards/:id', deleteCard);
+
+// Card Attachments
+router.post('/cards/:id/attachments', upload.single('file'), uploadAttachment);
+router.delete('/cards/:id/attachments/:attachmentId', removeAttachment);
+
+// Card Comments
+router.get('/cards/:id/comments', getCardComments);
+router.post('/cards/:id/comments', addComment);
+router.delete('/comments/:id', deleteComment);
+
+// Card Activity Log
+router.get('/cards/:id/activities', getCardActivities);
 
 export default router;

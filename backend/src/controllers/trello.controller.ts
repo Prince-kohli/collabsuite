@@ -1,11 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
 import { TrelloService } from '../services/trello.service';
+import { BadRequestError } from '../errors/AppError';
 
+export const createBoard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { workspaceId, title, description } = req.body;
+    const board = await TrelloService.createBoard(workspaceId, title, description);
 
+    res.status(201).json({
+      success: true,
+      statusCode: 201,
+      message: 'Board created successfully',
+      data: { board }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
-/**
- * Controller handler to get all boards in a workspace.
- */
 export const getWorkspaceBoards = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const workspaceId = req.query.workspaceId as string;
@@ -31,28 +43,6 @@ export const getWorkspaceBoards = async (req: Request, res: Response, next: Next
   }
 };
 
-/**
- * Controller handler to create a new board.
- */
-export const createBoard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { workspaceId, title, description } = req.body;
-    const board = await TrelloService.createBoard(workspaceId, title, description);
-
-    res.status(201).json({
-      success: true,
-      statusCode: 201,
-      message: 'Board created successfully',
-      data: { board }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Controller handler to get board details.
- */
 export const getBoardDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
@@ -69,9 +59,21 @@ export const getBoardDetails = async (req: Request, res: Response, next: NextFun
   }
 };
 
-/**
- * Controller handler to create a list.
- */
+export const deleteBoard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await TrelloService.deleteBoard(id);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Board deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createList = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { boardId, title, position } = req.body;
@@ -88,9 +90,21 @@ export const createList = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-/**
- * Controller handler to create a card.
- */
+export const deleteList = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await TrelloService.deleteList(id);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'List deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createCard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { listId, boardId, title, description, assignees, labels, dueDate } = req.body;
@@ -107,9 +121,79 @@ export const createCard = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-/**
- * Controller handler to move or reorder a card.
- */
+export const updateCard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.userId;
+    const updates = req.body;
+
+    const card = await TrelloService.updateCard(id, userId, updates);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Card updated successfully',
+      data: { card }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const uploadAttachment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.userId;
+
+    if (!req.file) {
+      throw new BadRequestError('No file uploaded');
+    }
+
+    const card = await TrelloService.addAttachment(id, userId, req.file);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Attachment uploaded successfully',
+      data: { card }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeAttachment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, attachmentId } = req.params;
+    const card = await TrelloService.removeAttachment(id, attachmentId);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Attachment removed successfully',
+      data: { card }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getCardActivities = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const activities = await TrelloService.getCardActivities(id);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Card activities retrieved successfully',
+      data: { activities }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const moveCard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
@@ -121,6 +205,21 @@ export const moveCard = async (req: Request, res: Response, next: NextFunction):
       statusCode: 200,
       message: 'Card moved successfully',
       data: { card }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteCard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await TrelloService.deleteCard(id);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Card deleted successfully'
     });
   } catch (error) {
     next(error);

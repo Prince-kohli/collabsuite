@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import { logger } from './logger';
 import { getOtpEmailTemplate } from './email-templates/otp.template';
 import { getWorkspaceInviteEmailTemplate } from './email-templates/workspace-invite.template';
-
+import { getNotificationEmailTemplate } from './email-templates/notification.template';
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587', 10),
@@ -69,5 +69,37 @@ export const sendWorkspaceInviteEmail = async (
     logger.info(`Workspace invite email sent successfully to: ${toEmail}`);
   } catch (error) {
     logger.error('Failed to send workspace invite email', { error, toEmail });
+  }
+};
+
+/**
+ * Send generic notification email (assignment / mention / comment).
+ */
+export const sendNotificationEmail = async (
+  toEmail: string,
+  title: string,
+  message: string,
+  link?: string
+): Promise<void> => {
+  if (process.env.NODE_ENV === 'test') {
+    logger.info(`[Test Mode] Notification email skipped for: ${toEmail}`);
+    return;
+  }
+
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const actionUrl = link ? `${clientUrl}${link}` : clientUrl;
+
+  const mailOptions = {
+    from: `"CollabSuite" <${process.env.SMTP_USER}>`,
+    to: toEmail,
+    subject: `CollabSuite - ${title}`,
+    html: getNotificationEmailTemplate(title, message, actionUrl),
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    logger.info(`Notification email sent successfully to: ${toEmail}`);
+  } catch (error) {
+    logger.error('Failed to send notification email', { error, toEmail });
   }
 };
