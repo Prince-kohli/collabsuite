@@ -1,6 +1,7 @@
 import { Workspace, IWorkspace, WorkspaceRole } from '../models/workspace.model';
 import { User } from '../models/user.model';
 import { NotFoundError, ConflictError } from '../errors/AppError';
+import { sendWorkspaceInviteEmail } from '../utils/email.util';
 import { logger } from '../utils/logger';
 
 export class WorkspaceService {
@@ -65,7 +66,7 @@ export class WorkspaceService {
   }
 
   /**
-   * Add a member to a workspace.
+   * Add a member to a workspace and send notification email.
    */
   public static async addMember(workspaceId: string, email: string, role: WorkspaceRole): Promise<IWorkspace> {
     const targetUser = await User.findOne({ email });
@@ -94,6 +95,9 @@ export class WorkspaceService {
 
     await workspace.save();
     logger.info(`User ${targetUser.email} added to workspace ${workspace._id} as ${role}`);
+
+    // Send email invitation notification
+    await sendWorkspaceInviteEmail(targetUser.email, workspace.name, role);
 
     return workspace;
   }

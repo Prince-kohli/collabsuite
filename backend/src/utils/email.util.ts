@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
+import { getOtpEmailTemplate } from './email-templates/otp.template';
+import { getWorkspaceInviteEmailTemplate } from './email-templates/workspace-invite.template';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -28,18 +30,7 @@ export const sendOtpEmail = async (
     from: `"CollabSuite" <${process.env.SMTP_USER}>`,
     to: toEmail,
     subject: 'CollabSuite - Verification OTP Code',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-        <h2 style="color: #4f46e5; margin-bottom: 8px;">CollabSuite Verification</h2>
-        <p style="color: #334155; font-size: 14px; margin-bottom: 20px;">Hello ${userName}, use the following 6-digit OTP to complete your account registration:</p>
-        <div style="text-align: center; margin: 24px 0;">
-          <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #4f46e5; background-color: #f1f5f9; padding: 12px 24px; border-radius: 8px; display: inline-block;">
-            ${otp}
-          </span>
-        </div>
-        <p style="color: #64748b; font-size: 12px; text-align: center;">This OTP is valid for 10 minutes. Do not share this code with anyone.</p>
-      </div>
-    `,
+    html: getOtpEmailTemplate(userName, otp),
   };
 
   try {
@@ -48,5 +39,35 @@ export const sendOtpEmail = async (
   } catch (error) {
     logger.error('Failed to send OTP email', { error, toEmail });
     throw error;
+  }
+};
+
+/**
+ * Send invitation email to member added to a workspace.
+ */
+export const sendWorkspaceInviteEmail = async (
+  toEmail: string,
+  workspaceName: string,
+  role: string
+): Promise<void> => {
+  if (process.env.NODE_ENV === 'test') {
+    logger.info(`[Test Mode] Workspace invite email skipped for: ${toEmail}`);
+    return;
+  }
+
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+  const mailOptions = {
+    from: `"CollabSuite" <${process.env.SMTP_USER}>`,
+    to: toEmail,
+    subject: `CollabSuite - You have been added to ${workspaceName}`,
+    html: getWorkspaceInviteEmailTemplate(workspaceName, role, clientUrl),
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    logger.info(`Workspace invite email sent successfully to: ${toEmail}`);
+  } catch (error) {
+    logger.error('Failed to send workspace invite email', { error, toEmail });
   }
 };
