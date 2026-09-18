@@ -10,10 +10,16 @@ export class TrelloService {
   /**
    * Helper function to invalidate Redis board cache.
    */
+
   private static async invalidateBoardCache(boardId: string): Promise<void> {
     await redisClient.del(`board_cache:${boardId}`);
   }
-
+  /**
+   * Get all non-archived boards in a workspace.
+   */
+  public static async getWorkspaceBoards(workspaceId: string): Promise<IBoard[]> {
+    return Board.find({ workspaceId, isArchived: false }).sort({ createdAt: -1 });
+  }
   /**
    * Create a new board inside a workspace.
    */

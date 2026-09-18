@@ -45,7 +45,7 @@ export interface Card {
 
 export interface List {
   _id: string;
-  name: string;
+  title: string;
   boardId: string;
   position: number;
   cards?: Card[];
@@ -55,10 +55,10 @@ export interface List {
 
 export interface Board {
   _id: string;
-  name: string;
+  title: string;
   description?: string;
   workspaceId: string;
-  lists?: List[];
+  position?: number;
   createdAt?: string;
   updatedAt?: string;
 }

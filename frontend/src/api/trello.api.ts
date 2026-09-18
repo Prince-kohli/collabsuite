@@ -8,7 +8,7 @@ export interface CreateBoardPayload {
 }
 
 export interface CreateListPayload {
-  name: string;
+  title: string;
   boardId: string;
   position?: number;
 }
@@ -23,7 +23,7 @@ export interface CreateCardPayload {
 
 export interface MoveCardPayload {
   targetListId: string;
-  position: number;
+  newPosition: number;
 }
 
 export interface BoardDetailsResponse {
@@ -31,6 +31,18 @@ export interface BoardDetailsResponse {
   lists: List[];
   cards: Card[];
 }
+
+/**
+ * Fetch all boards for a specific workspace.
+ */
+export const getWorkspaceBoardsApi = async (
+  workspaceId: string
+): Promise<ApiResponse<{ boards: Board[] }>> => {
+  const response = await apiClient.get<ApiResponse<{ boards: Board[] }>>(
+    `/trello/boards?workspaceId=${workspaceId}`
+  );
+  return response.data;
+};
 
 /**
  * Create a new board in a workspace.

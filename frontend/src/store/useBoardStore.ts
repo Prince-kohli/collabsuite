@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Board, List, Card } from '../types';
 import {
+  getWorkspaceBoardsApi,
   createBoardApi,
   getBoardDetailsApi,
   createListApi,
@@ -12,6 +13,7 @@ import {
 } from '../api/trello.api';
 
 interface BoardState {
+  boards: Board[];
   currentBoard: Board | null;
   lists: List[];
   cardsByListId: Record<string, Card[]>;
@@ -19,6 +21,7 @@ interface BoardState {
   error: string | null;
 
   // Actions
+  fetchWorkspaceBoards: (workspaceId: string) => Promise<void>;
   fetchBoardDetails: (boardId: string) => Promise<void>;
   createBoard: (payload: CreateBoardPayload) => Promise<Board>;
   createList: (payload: CreateListPayload) => Promise<void>;
@@ -34,11 +37,23 @@ interface BoardState {
 }
 
 export const useBoardStore = create<BoardState>((set, get) => ({
+  boards: [],
   currentBoard: null,
   lists: [],
   cardsByListId: {},
   isLoading: false,
   error: null,
+
+  fetchWorkspaceBoards: async (workspaceId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await getWorkspaceBoardsApi(workspaceId);
+      set({ boards: response.data.boards, isLoading: false });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to fetch boards';
+      set({ error: errorMessage, isLoading: false });
+    }
+  },
 
   fetchBoardDetails: async (boardId: string) => {
     set({ isLoading: true, error: null });
@@ -46,7 +61,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const response = await getBoardDetailsApi(boardId);
       const { board, lists = [], cards = [] } = response.data;
 
-      // Group cards by listId
       const cardsMap: Record<string, Card[]> = {};
       lists.forEach((list) => {
         cardsMap[list._id] = [];
@@ -59,12 +73,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         cardsMap[card.listId].push(card);
       });
 
-      // Sort cards in each list by position
       Object.keys(cardsMap).forEach((listId) => {
         cardsMap[listId].sort((a, b) => a.position - b.position);
       });
 
-      // Sort lists by position
       const sortedLists = [...lists].sort((a, b) => a.position - b.position);
 
       set({
@@ -83,8 +95,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await createBoardApi(payload);
-      set({ isLoading: false });
-      return response.data.board;
+      const newBoard = response.data.board;
+      set((state) => ({
+        boards: [newBoard, ...state.boards],
+        isLoading: false,
+      }));
+      return newBoard;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to create board';
       set({ error: errorMessage, isLoading: false });
@@ -141,21 +157,16 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   ) => {
     const previousCardsMap = get().cardsByListId;
 
-    // Deep clone current map
     const newCardsMap: Record<string, Card[]> = JSON.parse(JSON.stringify(previousCardsMap));
     const sourceCards = newCardsMap[sourceListId] || [];
     const targetCards = sourceListId === targetListId ? sourceCards : newCardsMap[targetListId] || [];
 
-    // Remove card from source list
     const [movedCard] = sourceCards.splice(sourceIndex, 1);
     if (!movedCard) return;
 
     movedCard.listId = targetListId;
-
-    // Insert card into target list
     targetCards.splice(targetIndex, 0, movedCard);
 
-    // Re-calculate positions in target list
     targetCards.forEach((card, idx) => {
       card.position = idx;
     });
@@ -166,16 +177,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       });
     }
 
-    // Immediate local UI update
     set({ cardsByListId: newCardsMap });
 
     try {
       await moveCardApi(cardId, {
         targetListId,
-        position: targetIndex,
+        newPosition: targetIndex,
       });
     } catch (err: any) {
-      // Rollback to previous state on server error
       set({ cardsByListId: previousCardsMap });
       const errorMessage = err.response?.data?.message || 'Failed to move card';
       set({ error: errorMessage });
@@ -184,6 +193,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
   reset: () => {
     set({
+      boards: [],
       currentBoard: null,
       lists: [],
       cardsByListId: {},

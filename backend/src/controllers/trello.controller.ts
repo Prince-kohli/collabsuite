@@ -1,6 +1,36 @@
 import { Request, Response, NextFunction } from 'express';
 import { TrelloService } from '../services/trello.service';
 
+
+
+/**
+ * Controller handler to get all boards in a workspace.
+ */
+export const getWorkspaceBoards = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const workspaceId = req.query.workspaceId as string;
+    if (!workspaceId) {
+      res.status(400).json({
+        success: false,
+        statusCode: 400,
+        message: 'workspaceId query parameter is required'
+      });
+      return;
+    }
+
+    const boards = await TrelloService.getWorkspaceBoards(workspaceId);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Workspace boards retrieved successfully',
+      data: { boards }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * Controller handler to create a new board.
  */

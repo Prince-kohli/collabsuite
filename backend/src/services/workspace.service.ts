@@ -37,6 +37,10 @@ export class WorkspaceService {
       ]
     });
 
+    // Populate data before returning to frontend
+    await workspace.populate('ownerId', 'name email avatar');
+    await workspace.populate('members.userId', 'name email avatar');
+
     logger.info(`Workspace created: ${workspace.name} (${workspace._id}) by user ${userId}`);
     return workspace;
   }
@@ -47,6 +51,7 @@ export class WorkspaceService {
   public static async getUserWorkspaces(userId: string): Promise<IWorkspace[]> {
     return Workspace.find({ 'members.userId': userId })
       .populate('ownerId', 'name email avatar')
+      .populate('members.userId', 'name email avatar') // Ensure members are populated here too
       .sort({ updatedAt: -1 });
   }
 
@@ -94,6 +99,11 @@ export class WorkspaceService {
     });
 
     await workspace.save();
+
+    // Populate data before returning to frontend
+    await workspace.populate('ownerId', 'name email avatar');
+    await workspace.populate('members.userId', 'name email avatar');
+
     logger.info(`User ${targetUser.email} added to workspace ${workspace._id} as ${role}`);
 
     // Send email invitation notification

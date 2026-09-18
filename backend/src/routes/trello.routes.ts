@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createBoard,
+  getWorkspaceBoards,
   getBoardDetails,
   createList,
   createCard,
@@ -17,8 +18,14 @@ import {
 
 const router = Router();
 
-// All trello endpoints require user authentication
 router.use(authenticate);
+
+/**
+ * @route   GET /api/v1/trello/boards?workspaceId=...
+ * @desc    Get all boards in a workspace
+ * @access  Private
+ */
+router.get('/boards', getWorkspaceBoards);
 
 /**
  * @route   POST /api/v1/trello/boards
