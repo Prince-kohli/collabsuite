@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import { NotificationBell } from '../common/NotificationBell';
 
 interface NavbarProps {
   onToggleSidebar?: () => void;
@@ -89,6 +90,8 @@ export const Navbar = ({ onToggleSidebar, onOpenSearchModal }: NavbarProps) => {
       </button>
 
       <div className="flex items-center gap-2">
+        <NotificationBell />
+
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"

@@ -55,14 +55,17 @@ describe('Auth Endpoints Integration Tests', () => {
     expect(res.body.success).toBe(false);
   });
 
-  it('GET /api/v1/auth/verify-email - Should verify email address with valid token', async () => {
+  it('POST /api/v1/auth/verify-otp - Should verify 6-digit OTP code successfully', async () => {
     const dbUser = await User.findOne({ email: testUser.email });
     expect(dbUser).not.toBeNull();
-    const token = dbUser?.emailVerificationToken;
+    const otp = dbUser?.emailVerificationOtp;
 
     const res = await request(app)
-      .get('/api/v1/auth/verify-email')
-      .query({ token });
+      .post('/api/v1/auth/verify-otp')
+      .send({
+        email: testUser.email,
+        otp,
+      });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);

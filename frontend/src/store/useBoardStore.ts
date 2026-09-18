@@ -3,13 +3,22 @@ import type { Board, List, Card } from '../types';
 import {
   getWorkspaceBoardsApi,
   createBoardApi,
+  deleteBoardApi,
   getBoardDetailsApi,
   createListApi,
+  deleteListApi,
   createCardApi,
+  updateCardApi,
+  deleteCardApi,
+  uploadAttachmentApi,
+  removeAttachmentApi,
   moveCardApi,
   type CreateBoardPayload,
   type CreateListPayload,
   type CreateCardPayload,
+  type UpdateCardPayload,
+  updateListApi,
+  updateBoardApi,
 } from '../api/trello.api';
 
 interface BoardState {
@@ -24,8 +33,16 @@ interface BoardState {
   fetchWorkspaceBoards: (workspaceId: string) => Promise<void>;
   fetchBoardDetails: (boardId: string) => Promise<void>;
   createBoard: (payload: CreateBoardPayload) => Promise<Board>;
+  deleteBoard: (boardId: string) => Promise<void>;
   createList: (payload: CreateListPayload) => Promise<void>;
+  deleteList: (listId: string) => Promise<void>;
   createCard: (payload: CreateCardPayload) => Promise<void>;
+  updateCardDetails: (cardId: string, payload: UpdateCardPayload) => Promise<void>;
+  uploadCardAttachment: (cardId: string, file: File) => Promise<void>;
+  deleteCardAttachment: (cardId: string, attachmentId: string) => Promise<void>;
+  deleteCard: (cardId: string, listId: string) => Promise<void>;
+    updateBoard: (boardId: string, payload: { title?: string; description?: string }) => Promise<void>;
+  updateList: (listId: string, title: string) => Promise<void>;
   moveCardOptimistic: (
     cardId: string,
     sourceListId: string,
@@ -90,7 +107,37 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       set({ error: errorMessage, isLoading: false });
     }
   },
+  updateBoard: async (boardId, payload) => {
+    try {
+      const response = await updateBoardApi(boardId, payload);
+      const updated = response.data.board;
+      set((state) => ({
+        boards: state.boards.map((b) => (b._id === boardId ? updated : b)),
+        currentBoard:
+          state.currentBoard?._id === boardId
+            ? { ...state.currentBoard, ...updated }
+            : state.currentBoard,
+      }));
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to update board';
+      set({ error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  },
 
+  updateList: async (listId, title) => {
+    try {
+      const response = await updateListApi(listId, { title });
+      const updated = response.data.list;
+      set((state) => ({
+        lists: state.lists.map((l) => (l._id === listId ? updated : l)),
+      }));
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to update list';
+      set({ error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  },
   createBoard: async (payload: CreateBoardPayload) => {
     set({ isLoading: true, error: null });
     try {
@@ -104,6 +151,20 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to create board';
       set({ error: errorMessage, isLoading: false });
+      throw new Error(errorMessage);
+    }
+  },
+
+  deleteBoard: async (boardId: string) => {
+    try {
+      await deleteBoardApi(boardId);
+      set((state) => ({
+        boards: state.boards.filter((b) => b._id !== boardId),
+        currentBoard: state.currentBoard?._id === boardId ? null : state.currentBoard,
+      }));
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to delete board';
+      set({ error: errorMessage });
       throw new Error(errorMessage);
     }
   },
@@ -127,6 +188,24 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     }
   },
 
+  deleteList: async (listId: string) => {
+    try {
+      await deleteListApi(listId);
+      set((state) => {
+        const newCardsMap = { ...state.cardsByListId };
+        delete newCardsMap[listId];
+        return {
+          lists: state.lists.filter((l) => l._id !== listId),
+          cardsByListId: newCardsMap,
+        };
+      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to delete list';
+      set({ error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  },
+
   createCard: async (payload: CreateCardPayload) => {
     try {
       const response = await createCardApi(payload);
@@ -143,6 +222,94 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       });
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to create card';
+      set({ error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  },
+
+  updateCardDetails: async (cardId: string, payload: UpdateCardPayload) => {
+    try {
+      const response = await updateCardApi(cardId, payload);
+      const updatedCard = response.data.card;
+
+      set((state) => {
+        const listCards = state.cardsByListId[updatedCard.listId] || [];
+        return {
+          cardsByListId: {
+            ...state.cardsByListId,
+            [updatedCard.listId]: listCards.map((c) =>
+              c._id === cardId ? updatedCard : c
+            ),
+          },
+        };
+      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to update card';
+      set({ error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  },
+
+  uploadCardAttachment: async (cardId: string, file: File) => {
+    try {
+      const response = await uploadAttachmentApi(cardId, file);
+      const updatedCard = response.data.card;
+
+      set((state) => {
+        const listCards = state.cardsByListId[updatedCard.listId] || [];
+        return {
+          cardsByListId: {
+            ...state.cardsByListId,
+            [updatedCard.listId]: listCards.map((c) =>
+              c._id === cardId ? updatedCard : c
+            ),
+          },
+        };
+      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to upload attachment';
+      set({ error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  },
+
+  deleteCardAttachment: async (cardId: string, attachmentId: string) => {
+    try {
+      const response = await removeAttachmentApi(cardId, attachmentId);
+      const updatedCard = response.data.card;
+
+      set((state) => {
+        const listCards = state.cardsByListId[updatedCard.listId] || [];
+        return {
+          cardsByListId: {
+            ...state.cardsByListId,
+            [updatedCard.listId]: listCards.map((c) =>
+              c._id === cardId ? updatedCard : c
+            ),
+          },
+        };
+      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to remove attachment';
+      set({ error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  },
+
+  deleteCard: async (cardId: string, listId: string) => {
+    try {
+      await deleteCardApi(cardId);
+      set((state) => {
+        const currentListCards = state.cardsByListId[listId] || [];
+        return {
+          cardsByListId: {
+            ...state.cardsByListId,
+            [listId]: currentListCards.filter((c) => c._id !== cardId),
+          },
+        };
+      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to delete card';
       set({ error: errorMessage });
       throw new Error(errorMessage);
     }

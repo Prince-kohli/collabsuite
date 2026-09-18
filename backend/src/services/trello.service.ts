@@ -344,4 +344,30 @@ export class TrelloService {
     await Board.findByIdAndDelete(boardId);
     await this.invalidateBoardCache(boardId);
   }
+
+
+    /**
+   * Update Board Title and Description.
+   */
+  public static async updateBoard(boardId: string, updates: { title?: string; description?: string }): Promise<IBoard> {
+    const board = await Board.findByIdAndUpdate(boardId, updates, { new: true });
+    if (!board) {
+      throw new NotFoundError('Board not found');
+    }
+    await this.invalidateBoardCache(boardId);
+    return board;
+  }
+
+  /**
+   * Update List Title.
+   */
+  public static async updateList(listId: string, title: string): Promise<IList> {
+    const list = await List.findByIdAndUpdate(listId, { title }, { new: true });
+    if (!list) {
+      throw new NotFoundError('List not found');
+    }
+    await this.invalidateBoardCache(list.boardId.toString());
+    return list;
+  }
 }
+

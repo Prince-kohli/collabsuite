@@ -4,6 +4,7 @@ import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import { useBoardStore } from '../store/useBoardStore';
 import { useToastStore } from '../store/useToastStore';
 import { KanbanColumn } from '../components/trello/KanbanColumn';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 
 export const BoardDetailPage = () => {
   const { workspaceId, boardId } = useParams<{ workspaceId: string; boardId: string }>();
@@ -16,6 +17,7 @@ export const BoardDetailPage = () => {
     cardsByListId,
     fetchBoardDetails,
     createList,
+    deleteBoard,
     moveCardOptimistic,
     isLoading,
   } = useBoardStore();
@@ -23,6 +25,9 @@ export const BoardDetailPage = () => {
   const [isAddingList, setIsAddingList] = useState(false);
   const [listTitle, setListTitle] = useState('');
   const [isSubmittingList, setIsSubmittingList] = useState(false);
+
+  const [isDeleteBoardModalOpen, setIsDeleteBoardModalOpen] = useState(false);
+  const [isDeletingBoard, setIsDeletingBoard] = useState(false);
 
   useEffect(() => {
     if (boardId) {
@@ -72,6 +77,21 @@ export const BoardDetailPage = () => {
     }
   };
 
+  const handleDeleteBoard = async () => {
+    if (!boardId) return;
+    setIsDeletingBoard(true);
+    try {
+      await deleteBoard(boardId);
+      showToast('Board deleted', 'info');
+      setIsDeleteBoardModalOpen(false);
+      navigate(`/workspaces/${workspaceId}/boards`);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete board', 'error');
+    } finally {
+      setIsDeletingBoard(false);
+    }
+  };
+
   if (isLoading && !currentBoard) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -103,6 +123,17 @@ export const BoardDetailPage = () => {
             )}
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsDeleteBoardModalOpen(true)}
+          className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Delete Board
+        </button>
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -159,6 +190,16 @@ export const BoardDetailPage = () => {
           </div>
         </div>
       </DragDropContext>
+
+      <ConfirmModal
+        isOpen={isDeleteBoardModalOpen}
+        title="Delete Board"
+        message={`Are you sure you want to delete board "${currentBoard?.title}"? All lists and cards inside it will be permanently deleted.`}
+        confirmText="Delete Board"
+        isLoading={isDeletingBoard}
+        onConfirm={handleDeleteBoard}
+        onClose={() => setIsDeleteBoardModalOpen(false)}
+      />
     </div>
   );
 };

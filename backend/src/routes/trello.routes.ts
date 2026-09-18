@@ -12,18 +12,23 @@ import {
   removeAttachment,
   getCardActivities,
   moveCard,
-  deleteCard
+  deleteCard,
+  updateBoard,
+  updateList
 } from '../controllers/trello.controller';
 import { addComment, getCardComments, deleteComment } from '../controllers/comment.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { upload } from '../utils/upload.util';
+
 import {
   createBoardSchema,
   createListSchema,
   createCardSchema,
   updateCardSchema,
-  moveCardSchema
+  moveCardSchema,
+  updateBoardSchema,
+  updateListSchema
 } from '../validations/trello.validation';
 
 const router = Router();
@@ -54,7 +59,8 @@ router.delete('/cards/:id/attachments/:attachmentId', removeAttachment);
 router.get('/cards/:id/comments', getCardComments);
 router.post('/cards/:id/comments', addComment);
 router.delete('/comments/:id', deleteComment);
-
+router.patch('/boards/:id', validate(updateBoardSchema), updateBoard);
+router.patch('/lists/:id', validate(updateListSchema), updateList);
 // Card Activity Log
 router.get('/cards/:id/activities', getCardActivities);
 

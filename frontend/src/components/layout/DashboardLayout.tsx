@@ -12,7 +12,7 @@ export const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const { fetchWorkspaces, isLoading, workspaces, activeWorkspace } = useWorkspaceStore();
+  const { fetchWorkspaces, isLoading, workspaces } = useWorkspaceStore();
 
   useEffect(() => {
     // Force light mode - remove any leftover dark class

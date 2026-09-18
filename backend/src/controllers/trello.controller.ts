@@ -225,3 +225,37 @@ export const deleteCard = async (req: Request, res: Response, next: NextFunction
     next(error);
   }
 };
+
+export const updateBoard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { title, description } = req.body;
+    const board = await TrelloService.updateBoard(id, { title, description });
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Board updated successfully',
+      data: { board }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateList = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+    const list = await TrelloService.updateList(id, title);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'List updated successfully',
+      data: { list }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

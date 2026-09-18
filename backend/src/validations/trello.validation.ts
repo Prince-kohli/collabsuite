@@ -43,3 +43,16 @@ export const updateCardSchema = z.object({
     dueDate: z.string().nullable().optional()
   })
 });
+
+export const updateBoardSchema = z.object({
+  body: z.object({
+    title: z.string().min(1, 'Board title is required').max(100).optional(),
+    description: z.string().max(500).optional()
+  })
+});
+
+export const updateListSchema = z.object({
+  body: z.object({
+    title: z.string().min(1, 'List title is required').max(100)
+  })
+});
