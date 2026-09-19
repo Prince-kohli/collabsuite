@@ -38,7 +38,7 @@ export const BoardDetailPage = () => {
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   const isViewer = currentUserRole === 'viewer';
-  const canDeleteBoard = currentUserRole === 'owner' || currentUserRole === 'admin';
+  const canDeleteBoard = currentUserRole === 'owner'
 
   const allCards = useMemo(() => Object.values(cardsByListId).flat(), [cardsByListId]);
 

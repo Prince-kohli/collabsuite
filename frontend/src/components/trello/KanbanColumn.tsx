@@ -30,7 +30,7 @@ export const KanbanColumn = ({ list, cards, boardId }: KanbanColumnProps) => {
 
   const isViewer = currentUserRole === 'viewer';
   // Only owner and admin can delete lists
-  const canDelete = currentUserRole === 'owner' || currentUserRole === 'admin';
+  const canDelete = currentUserRole === 'owner' 
   const canEditList = !isViewer;
 
   const handleAddCard = async (e: React.FormEvent) => {

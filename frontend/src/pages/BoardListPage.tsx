@@ -25,7 +25,7 @@ export const BoardListPage = () => {
 
   // RBAC checks
   const isViewer = currentUserRole === 'viewer';
-  const canManageBoard = currentUserRole === 'owner' || currentUserRole === 'admin';
+  const canManageBoard = currentUserRole === 'owner' 
 
   useEffect(() => {
     if (workspaceId) fetchWorkspaceBoards(workspaceId);

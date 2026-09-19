@@ -23,7 +23,7 @@ export const KanbanCard = ({ card, index }: KanbanCardProps) => {
 
   const isViewer = currentUserRole === 'viewer';
   // Only owner and admin can delete cards
-  const canDelete = currentUserRole === 'owner' || currentUserRole === 'admin';
+  const canDelete = currentUserRole === 'owner' 
 
   const handleDeleteCard = async () => {
     if (!canDelete) return;
