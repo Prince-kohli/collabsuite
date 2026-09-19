@@ -1,19 +1,22 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 interface ThemeState {
   isDarkMode: boolean;
   toggleTheme: () => void;
+  initTheme: () => void;
 }
 
-export const useThemeStore = create<ThemeState>()(
-  persist(
-    (set) => ({
-      isDarkMode: false, // DEFAULT LIGHT MODE
-      toggleTheme: () => set((state) => ({ isDarkMode: !state.isDarkMode }))
-    }),
-    {
-      name: 'collabsuite-theme-storage'
-    }
-  )
-);
+export const useThemeStore = create<ThemeState>(() => ({
+  isDarkMode: false,
+
+  // Dark mode disabled for consistent light UI
+  toggleTheme: () => {
+    document.documentElement.classList.remove('dark');
+    localStorage.setItem('theme', 'light');
+  },
+
+  initTheme: () => {
+    document.documentElement.classList.remove('dark');
+    localStorage.setItem('theme', 'light');
+  },
+}));

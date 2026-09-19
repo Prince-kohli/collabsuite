@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
-import { useThemeStore } from '../../store/useThemeStore'; // <-- Import Theme Store
 import { NotificationBell } from '../common/NotificationBell';
 
 interface NavbarProps {
@@ -14,7 +13,6 @@ export const Navbar = ({ onToggleSidebar, onOpenSearchModal }: NavbarProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { activeWorkspace, currentUserRole } = useWorkspaceStore();
-  const { isDarkMode, toggleTheme } = useThemeStore(); // <-- Get theme state and toggle function
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -48,13 +46,13 @@ export const Navbar = ({ onToggleSidebar, onOpenSearchModal }: NavbarProps) => {
   };
 
   return (
-    <header className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 flex items-center justify-between sticky top-0 z-30 transition-colors duration-200">
+    <header className="h-14 border-b border-slate-200 bg-white px-4 flex items-center justify-between sticky top-0 z-30">
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onToggleSidebar}
           aria-label="Toggle sidebar"
-          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors md:hidden cursor-pointer"
+          className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors md:hidden cursor-pointer"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -63,7 +61,7 @@ export const Navbar = ({ onToggleSidebar, onOpenSearchModal }: NavbarProps) => {
 
         {activeWorkspace && (
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-slate-900 dark:text-white truncate max-w-[150px] sm:max-w-xs">
+            <span className="font-semibold text-sm text-slate-900 truncate max-w-[150px] sm:max-w-xs">
               {activeWorkspace.name}
             </span>
             {currentUserRole && (
@@ -78,7 +76,7 @@ export const Navbar = ({ onToggleSidebar, onOpenSearchModal }: NavbarProps) => {
       <button
         type="button"
         onClick={onOpenSearchModal}
-        className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-slate-300 dark:hover:border-slate-600 transition-all w-64 justify-between cursor-pointer"
+        className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg hover:border-slate-300 transition-all w-64 justify-between cursor-pointer"
       >
         <span className="flex items-center gap-2">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -86,37 +84,19 @@ export const Navbar = ({ onToggleSidebar, onOpenSearchModal }: NavbarProps) => {
           </svg>
           Search across workspace...
         </span>
-        <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-slate-500 dark:text-slate-300">
+        <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white border border-slate-200 rounded text-slate-500">
           ⌘K
         </kbd>
       </button>
 
       <div className="flex items-center gap-2">
-        {/* Dark Mode Toggle Button */}
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          aria-label="Toggle Dark Mode"
-        >
-          {isDarkMode ? (
-            <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-          ) : (
-            <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-          )}
-        </button>
-
         <NotificationBell />
 
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center font-medium text-xs">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -124,17 +104,17 @@ export const Navbar = ({ onToggleSidebar, onOpenSearchModal }: NavbarProps) => {
           </button>
 
           {isUserMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-50">
-              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700">
-                <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.name}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50">
+              <div className="px-4 py-2 border-b border-slate-100">
+                <p className="text-sm font-medium text-slate-900 truncate">{user?.name}</p>
+                <p className="text-xs text-slate-500 truncate">{user?.email}</p>
               </div>
 
               <div className="py-1">
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors flex items-center gap-2 cursor-pointer"
+                  className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

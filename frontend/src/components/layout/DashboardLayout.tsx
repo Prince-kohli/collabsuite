@@ -13,11 +13,12 @@ export const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  
+
   const { fetchWorkspaces, isLoading, workspaces } = useWorkspaceStore();
   const { fetchNotifications, initSocketListeners } = useNotificationStore();
 
   useEffect(() => {
+    // Ensure light theme
     document.documentElement.classList.remove('dark');
 
     fetchWorkspaces();
@@ -67,10 +68,17 @@ export const DashboardLayout = () => {
               <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
                   <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v3M3 3h12a1.5 1.5 0 011.5 1.5v15A1.5 1.5 0 0115 21H3A1.5 1.5 0 011.5 19.5v-15A1.5 1.5 0 013 3z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v3M3 3h12a1.5 1.5 0 011.5 1.5v15A1.5 1.5 0 0115 21H3A1.5 1.5 0 011.5 19.5v-15A1.5 1.5 0 013 3z"
+                    />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">No workspace yet</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                  No workspace yet
+                </h3>
                 <p className="text-sm text-slate-500 max-w-sm mb-6">
                   Create your first workspace to start using Boards, Docs, and Channels.
                 </p>
