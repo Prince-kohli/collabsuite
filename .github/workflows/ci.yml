@@ -1,0 +1,52 @@
+name: CollabSuite CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci
+      - name: Run Tests
+        working-directory: ./backend
+        run: npm test
+        env:
+          MONGO_URI: mongodb://localhost:27017/collabsuite_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: supersecretkey
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      - name: Build project
+        working-directory: ./frontend
+        run: npm run build
