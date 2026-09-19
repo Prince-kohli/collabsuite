@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
 import request from 'supertest';
 import mongoose from 'mongoose';
 
-// Mock queues and sockets
 jest.mock('../src/sockets/socket.handler', () => ({
   getIO: () => ({
     to: () => ({ emit: jest.fn() }),
@@ -24,16 +23,18 @@ jest.mock('../src/queues/notification.queue', () => ({
 
 import app from '../src/app';
 import { User } from '../src/models/user.model';
-import { Workspace } from '../src/models/workspace.model';
+import { Notification } from '../src/models/notification.model';
+import { NotificationService } from '../src/services/notification.service';
 import { connectDatabase } from '../src/config/db';
 import { connectRedis, redisClient } from '../src/config/redis';
 
-describe('Search Service & Endpoints Tests', () => {
-  const testerEmail = `search_tester_${Date.now()}@example.com`;
+describe('Notification Service & Endpoints Tests', () => {
+  const testerEmail = `notif_tester_${Date.now()}@example.com`;
   const testPassword = 'Password123!';
 
   let accessToken: string;
-  let workspaceId: string;
+  let userId: string;
+  let notifId: string;
 
   beforeAll(async () => {
     await connectDatabase();
@@ -41,7 +42,7 @@ describe('Search Service & Endpoints Tests', () => {
 
     // Setup Test User
     await request(app).post('/api/v1/auth/register').send({
-      name: 'Search Tester',
+      name: 'Notif Tester',
       email: testerEmail,
       password: testPassword,
     });
@@ -51,6 +52,7 @@ describe('Search Service & Endpoints Tests', () => {
         email: testerEmail,
         otp: user.emailVerificationOtp,
       });
+      userId = user._id.toString();
     }
     const loginRes = await request(app).post('/api/v1/auth/login').send({
       email: testerEmail,
@@ -58,19 +60,22 @@ describe('Search Service & Endpoints Tests', () => {
     });
     accessToken = loginRes.body.data.accessToken;
 
-    // Create Workspace
-    const wsRes = await request(app)
-      .post('/api/v1/workspaces')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ name: 'Search Testing Workspace' });
-    workspaceId = wsRes.body.data.workspace._id;
+    // Create mock notification
+    const createdNotif = await NotificationService.createNotification({
+      userId,
+      type: 'system',
+      title: 'Welcome to CollabSuite',
+      message: 'System test notification',
+      sendEmail: false,
+    });
+    if (createdNotif) {
+      notifId = createdNotif._id.toString();
+    }
   });
 
   afterAll(async () => {
     await User.deleteOne({ email: testerEmail });
-    if (workspaceId) {
-      await Workspace.findByIdAndDelete(workspaceId);
-    }
+    await Notification.deleteMany({ userId });
     await mongoose.connection.close();
     try {
       await redisClient.quit();
@@ -79,36 +84,47 @@ describe('Search Service & Endpoints Tests', () => {
     }
   });
 
-  it('1. Empty Query - Should return empty arrays when query parameter is blank', async () => {
+  it('1. Get User Notifications - Should fetch user notification list', async () => {
     const res = await request(app)
-      .get(`/api/v1/search/workspace/${workspaceId}?q=`)
+      .get('/api/v1/notifications')
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.results).toEqual([]);
+    expect(Array.isArray(res.body.data.notifications)).toBe(true);
+    expect(res.body.data.notifications.length).toBeGreaterThan(0);
   });
 
-  it('2. Short Query - Should return empty results when query is less than 2 characters', async () => {
+  it('2. Mark As Read - Should mark notification as read', async () => {
     const res = await request(app)
-      .get(`/api/v1/search/workspace/${workspaceId}?q=a`)
+      .patch(`/api/v1/notifications/${notifId}/read`)
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.results).toEqual([]);
   });
 
-  it('3. Valid Global Search - Should execute MongoDB aggregation pipeline across workspace', async () => {
+  it('3. Mark All As Read - Should mark all notifications as read', async () => {
     const res = await request(app)
-      .get(`/api/v1/search/workspace/${workspaceId}?q=test`)
+      .patch('/api/v1/notifications/read-all')
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveProperty('cards');
-    expect(res.body.data).toHaveProperty('docs');
-    expect(res.body.data).toHaveProperty('messages');
-    expect(res.body.data).toHaveProperty('results');
+  });
+
+  it('4. Delete One Notification - Should delete single notification', async () => {
+    const res = await request(app)
+      .delete(`/api/v1/notifications/${notifId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  it('5. Clear All Notifications - Should clear notifications via service', async () => {
+    await NotificationService.clearAll(userId);
+    const userNotifs = await Notification.find({ userId });
+    expect(userNotifs.length).toBe(0);
   });
 });

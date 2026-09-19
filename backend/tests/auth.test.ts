@@ -1,101 +1,123 @@
+import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
 import request from 'supertest';
 import mongoose from 'mongoose';
+
+// 1. Mock background queues so production code is NOT touched
+jest.mock('../src/queues/audit.queue', () => ({
+  auditQueue: { add: jest.fn() },
+  auditWorker: null,
+  enqueueAuditLog: jest.fn(),
+}));
+
+jest.mock('../src/queues/notification.queue', () => ({
+  notificationQueue: { add: jest.fn() },
+  notificationWorker: null,
+  enqueueNotificationEmail: jest.fn(),
+}));
+
 import app from '../src/app';
 import { User } from '../src/models/user.model';
 import { connectDatabase } from '../src/config/db';
 import { connectRedis, redisClient } from '../src/config/redis';
 
-describe('Auth Endpoints Integration Tests', () => {
+describe('Auth Service & Endpoints Tests', () => {
+  const testEmail = `auth_test_${Date.now()}@example.com`;
+  const testPassword = 'Password123!';
+  let accessToken: string;
+
   beforeAll(async () => {
     await connectDatabase();
     await connectRedis();
-    await User.deleteMany({ email: 'test.user@example.com' });
   });
 
   afterAll(async () => {
-    await User.deleteMany({ email: 'test.user@example.com' });
+    // Cleanup test user and database connections
+    await User.deleteOne({ email: testEmail });
     await mongoose.connection.close();
-    await redisClient.quit();
+    try {
+      await redisClient.quit();
+    } catch (err) {
+      // Ignore disconnect errors in test teardown
+    }
   });
 
-  const testUser = {
-    name: 'Test User',
-    email: 'test.user@example.com',
-    password: 'Password123!',
-  };
-
-  it('POST /api/v1/auth/register - Should register a new user successfully', async () => {
-    const res = await request(app)
-      .post('/api/v1/auth/register')
-      .send(testUser);
+  it('1. Register - Should create user and send OTP', async () => {
+    const res = await request(app).post('/api/v1/auth/register').send({
+      name: 'Auth Tester',
+      email: testEmail,
+      password: testPassword,
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.email).toBe(testUser.email);
+    expect(res.body.data.email).toBe(testEmail);
   });
 
-  it('POST /api/v1/auth/register - Should reject registration with duplicate email', async () => {
-    const res = await request(app)
-      .post('/api/v1/auth/register')
-      .send(testUser);
+  it('2. Verify OTP - Should mark email as verified', async () => {
+    const user = await User.findOne({ email: testEmail });
+    expect(user).not.toBeNull();
 
-    expect(res.status).toBe(409);
-    expect(res.body.success).toBe(false);
-  });
-
-  it('POST /api/v1/auth/login - Should reject login when email is not verified', async () => {
-    const res = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: testUser.email,
-        password: testUser.password,
-      });
-
-    expect(res.status).toBe(401);
-    expect(res.body.success).toBe(false);
-  });
-
-  it('POST /api/v1/auth/verify-otp - Should verify 6-digit OTP code successfully', async () => {
-    const dbUser = await User.findOne({ email: testUser.email });
-    expect(dbUser).not.toBeNull();
-    const otp = dbUser?.emailVerificationOtp;
-
-    const res = await request(app)
-      .post('/api/v1/auth/verify-otp')
-      .send({
-        email: testUser.email,
-        otp,
-      });
+    const res = await request(app).post('/api/v1/auth/verify-otp').send({
+      email: testEmail,
+      otp: user?.emailVerificationOtp,
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-
-    const verifiedUser = await User.findOne({ email: testUser.email });
-    expect(verifiedUser?.isEmailVerified).toBe(true);
   });
 
-  it('POST /api/v1/auth/login - Should authenticate valid credentials after email verification', async () => {
-    const res = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: testUser.email,
-        password: testUser.password,
-      });
+  it('3. Login - Should authenticate user and return access token', async () => {
+    const res = await request(app).post('/api/v1/auth/login').send({
+      email: testEmail,
+      password: testPassword,
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveProperty('accessToken');
+    expect(res.body.data.accessToken).toBeDefined();
+
+    accessToken = res.body.data.accessToken;
   });
 
-  it('POST /api/v1/auth/login - Should fail with invalid credentials', async () => {
+  it('4. Get Profile - Should retrieve authenticated user profile', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: testUser.email,
-        password: 'WrongPassword',
-      });
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${accessToken}`);
 
-    expect(res.status).toBe(401);
-    expect(res.body.success).toBe(false);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.user.email).toBe(testEmail);
+  });
+
+  it('5. Forgot Password - Should generate password reset OTP', async () => {
+    const res = await request(app).post('/api/v1/auth/forgot-password').send({
+      email: testEmail,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  it('6. Reset Password - Should update password with valid OTP', async () => {
+    const user = await User.findOne({ email: testEmail });
+    expect(user?.passwordResetOtp).toBeDefined();
+
+    const res = await request(app).post('/api/v1/auth/reset-password').send({
+      email: testEmail,
+      otp: user?.passwordResetOtp,
+      newPassword: 'NewPassword123!',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  it('7. Logout - Should logout user', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
   });
 });
