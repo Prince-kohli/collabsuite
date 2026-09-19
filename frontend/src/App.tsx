@@ -5,6 +5,8 @@ import { AuthLayout } from './layouts/AuthLayout';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyOtpPage } from './pages/VerifyOtpPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 
 import { WorkspaceOverviewPage } from './pages/WorkspaceOverviewPage';
 import { WorkspaceSettingsPage } from './pages/WorkspaceSettingsPage';
@@ -36,7 +38,7 @@ const DashboardRedirect = () => {
     return <Navigate to={`/workspaces/${workspaces[0]._id}`} replace />;
   }
 
-  // No workspace: DashboardLayout empty state handle karega
+  // No workspace: DashboardLayout empty state will handle it
   return <WorkspaceOverviewPage />;
 };
 
@@ -49,6 +51,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-otp" element={<VerifyOtpPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>

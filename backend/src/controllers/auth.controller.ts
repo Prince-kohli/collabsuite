@@ -139,3 +139,41 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
     next(error);
   }
 };
+
+export const forgotPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+    const result = await AuthService.forgotPassword(email);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: result.message
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    await AuthService.resetPassword(email, otp, newPassword);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Password reset successful. You can now log in with your new password.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};

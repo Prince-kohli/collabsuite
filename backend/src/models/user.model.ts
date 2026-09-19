@@ -11,6 +11,8 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   emailVerificationOtp?: string | null;
   emailVerificationOtpExpires?: Date | null;
+  passwordResetOtp?: string | null;
+  passwordResetOtpExpires?: Date | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -57,6 +59,14 @@ const userSchema = new Schema<IUser>(
     emailVerificationOtpExpires: {
       type: Date,
       default: null
+    },
+    passwordResetOtp: {
+      type: String,
+      default: null
+    },
+    passwordResetOtpExpires: {
+      type: Date,
+      default: null
     }
   },
   {
@@ -73,7 +83,9 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+userSchema.methods.comparePassword = async function (
+  candidatePassword: string
+): Promise<boolean> {
   if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };

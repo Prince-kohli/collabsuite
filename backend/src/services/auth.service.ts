@@ -1,7 +1,7 @@
 import { User, IUser } from '../models/user.model';
 import { ConflictError, UnauthorizedError, BadRequestError } from '../errors/AppError';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, revokeRefreshToken } from '../utils/jwt.util';
-import { sendOtpEmail } from '../utils/email.util';
+import { sendOtpEmail, sendPasswordResetEmail } from '../utils/email.util';
 import { logger } from '../utils/logger';
 
 export interface AuthTokens {
@@ -164,5 +164,72 @@ export class AuthService {
       throw new UnauthorizedError('User not found');
     }
     return user;
+  }
+
+    /**
+   * Start password reset: generate OTP and email it.
+   * Always returns success message (do not leak whether email exists).
+   */
+  public static async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Generic response to avoid email enumeration
+    const generic = {
+      message: 'If an account exists with this email, a reset OTP has been sent.'
+    };
+
+    if (!user) {
+      return generic;
+    }
+
+    if (!user.isEmailVerified) {
+      throw new BadRequestError('Please verify your email before resetting password');
+    }
+
+    const otp = this.generateOtp();
+    user.passwordResetOtp = otp;
+    user.passwordResetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    await sendPasswordResetEmail(user.email, user.name, otp);
+    logger.info(`Password reset OTP sent to: ${user.email}`);
+
+    return generic;
+  }
+
+  /**
+   * Verify reset OTP and set a new password.
+   */
+  public static async resetPassword(
+    email: string,
+    otp: string,
+    newPassword: string
+  ): Promise<void> {
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select(
+      '+password'
+    );
+
+    if (!user) {
+      throw new BadRequestError('Invalid email or OTP');
+    }
+
+    if (
+      !user.passwordResetOtp ||
+      user.passwordResetOtp !== otp ||
+      !user.passwordResetOtpExpires ||
+      user.passwordResetOtpExpires < new Date()
+    ) {
+      throw new BadRequestError('Invalid or expired reset OTP');
+    }
+
+    user.password = newPassword;
+    user.passwordResetOtp = null;
+    user.passwordResetOtpExpires = null;
+    await user.save();
+
+    // Invalidate existing refresh sessions after password change
+    await revokeRefreshToken(user._id.toString());
+
+    logger.info(`Password reset successful for: ${user.email}`);
   }
 }

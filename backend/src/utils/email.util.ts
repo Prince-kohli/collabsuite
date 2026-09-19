@@ -3,6 +3,8 @@ import { logger } from './logger';
 import { getOtpEmailTemplate } from './email-templates/otp.template';
 import { getWorkspaceInviteEmailTemplate } from './email-templates/workspace-invite.template';
 import { getNotificationEmailTemplate } from './email-templates/notification.template';
+import { getPasswordResetEmailTemplate } from './email-templates/password-reset.template';
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587', 10),
@@ -101,5 +103,34 @@ export const sendNotificationEmail = async (
     logger.info(`Notification email sent successfully to: ${toEmail}`);
   } catch (error) {
     logger.error('Failed to send notification email', { error, toEmail });
+  }
+};
+
+/**
+ * Send password reset OTP email.
+ */
+export const sendPasswordResetEmail = async (
+  toEmail: string,
+  userName: string,
+  otp: string
+): Promise<void> => {
+  if (process.env.NODE_ENV === 'test') {
+    logger.info(`[Test Mode] Password reset email skipped for: ${toEmail}`);
+    return;
+  }
+
+  const mailOptions = {
+    from: `"CollabSuite" <${process.env.SMTP_USER}>`,
+    to: toEmail,
+    subject: 'CollabSuite - Password Reset OTP',
+    html: getPasswordResetEmailTemplate(userName, otp),
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    logger.info(`Password reset email sent successfully to: ${toEmail}`);
+  } catch (error) {
+    logger.error('Failed to send password reset email', { error, toEmail });
+    throw error;
   }
 };
