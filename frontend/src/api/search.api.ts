@@ -11,17 +11,24 @@ export interface SearchResultItem {
 
 export interface GlobalSearchResponse {
   results: SearchResultItem[];
+  cards?: unknown[];
+  docs?: unknown[];
+  messages?: unknown[];
 }
 
 /**
  * Execute global aggregation search across workspace resources.
+ * Backend route: GET /search/workspace/:workspaceId?q=
  */
 export const globalSearchApi = async (
   workspaceId: string,
   query: string
 ): Promise<ApiResponse<GlobalSearchResponse>> => {
-  const response = await apiClient.get<ApiResponse<GlobalSearchResponse>>('/search', {
-    params: { workspaceId, q: query },
-  });
+  const response = await apiClient.get<ApiResponse<GlobalSearchResponse>>(
+    `/search/workspace/${workspaceId}`,
+    {
+      params: { q: query }
+    }
+  );
   return response.data;
 };

@@ -15,30 +15,58 @@ export const SearchModal = ({ isOpen, onClose }: SearchModalProps) => {
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Focus input when modal opens
   useEffect(() => {
-    if (!query.trim() || !activeWorkspace) {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      setQuery('');
+      setResults([]);
+      setIsSearching(false);
+    }
+  }, [isOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
+  // Debounced global search (400ms)
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    const trimmed = query.trim();
+
+    if (!trimmed || trimmed.length < 2 || !activeWorkspace) {
       setResults([]);
       setIsSearching(false);
       return;
     }
 
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
     setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const response = await globalSearchApi(activeWorkspace._id, query.trim());
+        const response = await globalSearchApi(activeWorkspace._id, trimmed);
         setResults(response.data.results || []);
-      } catch (err) {
-        console.error('Global search error:', err);
+      } catch {
         setResults([]);
       } finally {
         setIsSearching(false);
       }
     }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [query, activeWorkspace]);
 
   if (!isOpen) return null;
@@ -52,72 +80,100 @@ export const SearchModal = ({ isOpen, onClose }: SearchModalProps) => {
     switch (type) {
       case 'board':
       case 'card':
-        return 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300';
+        return 'bg-purple-50 text-purple-700 border border-purple-100';
       case 'doc':
-        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300';
+        return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
       case 'channel':
       case 'message':
-        return 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300';
+        return 'bg-indigo-50 text-indigo-700 border border-indigo-100';
       default:
-        return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300';
+        return 'bg-slate-50 text-slate-600 border border-slate-200';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/50 backdrop-blur-xs">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-        {/* Search Input Bar */}
-        <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
-          <svg className="w-4 h-4 text-zinc-400 shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-slate-900/40 backdrop-blur-[2px]"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Search input */}
+        <div className="p-3 border-b border-slate-100 flex items-center gap-2 bg-white">
+          <svg
+            className="w-4 h-4 text-slate-400 shrink-0 ml-1"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
           <input
+            ref={inputRef}
             type="text"
-            autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search docs, cards, channels..."
-            className="w-full text-sm bg-transparent text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none"
+            placeholder="Search docs, cards, messages..."
+            className="w-full text-sm bg-transparent text-slate-900 placeholder-slate-400 focus:outline-none"
           />
           {isSearching && (
             <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
           )}
           <button
+            type="button"
             onClick={onClose}
-            className="text-xs px-2 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded cursor-pointer"
+            className="text-[10px] font-semibold px-2 py-1 bg-slate-100 text-slate-500 rounded-md border border-slate-200 cursor-pointer hover:bg-slate-200"
           >
             ESC
           </button>
         </div>
 
-        {/* Results List */}
-        <div className="max-h-80 overflow-y-auto p-2 space-y-1">
-          {results.length === 0 && query.trim() && !isSearching && (
-            <p className="text-xs text-zinc-400 text-center py-6">No matching results found.</p>
+        {/* Results */}
+        <div className="max-h-80 overflow-y-auto p-2 space-y-1 bg-white">
+          {results.length === 0 && query.trim().length >= 2 && !isSearching && (
+            <p className="text-xs text-slate-400 text-center py-8">
+              No matching results found.
+            </p>
           )}
 
-          {results.length === 0 && !query.trim() && (
-            <p className="text-xs text-zinc-400 text-center py-6">Type to search across active workspace...</p>
+          {results.length === 0 && query.trim().length < 2 && (
+            <p className="text-xs text-slate-400 text-center py-8">
+              Type at least 2 characters to search this workspace...
+            </p>
           )}
 
           {results.map((item) => (
-            <div
-              key={item.id}
+            <button
+              key={`${item.type}-${item.id}`}
+              type="button"
               onClick={() => handleSelectResult(item)}
-              className="p-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors flex items-center justify-between"
+              className="w-full text-left p-2.5 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between gap-3"
             >
-              <div className="min-w-0 flex-1 pr-3">
-                <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-900 truncate">
                   {item.title}
                 </p>
                 {item.snippet && (
-                  <p className="text-[11px] text-zinc-400 truncate mt-0.5">{item.snippet}</p>
+                  <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                    {item.snippet}
+                  </p>
                 )}
               </div>
-              <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md ${getBadgeColor(item.type)} shrink-0`}>
+              <span
+                className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md ${getBadgeColor(
+                  item.type
+                )} shrink-0`}
+              >
                 {item.type}
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
