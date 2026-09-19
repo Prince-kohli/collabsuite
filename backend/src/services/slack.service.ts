@@ -1,9 +1,13 @@
+import { Types } from 'mongoose';
 import { Channel, IChannel } from '../models/channel.model';
 import { Message, IMessage } from '../models/message.model';
 import { Workspace, WorkspaceRole } from '../models/workspace.model';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors/AppError';
 import { logger } from '../utils/logger';
 import { getIO } from '../sockets/socket.handler';
+
+// Import Notification Service for handling in-app & socket notifications
+import { NotificationService } from './notification.service';
 
 export interface CursorPaginatedMessages {
   messages: IMessage[];
@@ -12,9 +16,6 @@ export interface CursorPaginatedMessages {
 }
 
 export class SlackService {
-  /**
-   * Resolve workspace membership and role for a user.
-   */
   private static async getMemberRole(
     workspaceId: string,
     userId: string
@@ -32,27 +33,31 @@ export class SlackService {
     return member.role;
   }
 
-  /**
-   * Ensure user can write (Owner or Member). Viewers are blocked.
-   */
-  private static assertCanWrite(role: WorkspaceRole): void {
-    if (role === 'viewer') {
-      throw new ForbiddenError('Viewers have read-only access in Slack');
-    }
-  }
-
-  /**
-   * Create a new workspace channel (public or private).
-   */
   public static async createChannel(
     workspaceId: string,
     createdBy: string,
     name: string,
     topic?: string,
-    isPrivate: boolean = false
+    isPrivate: boolean = false,
+    memberIds: string[] = []
   ): Promise<IChannel> {
-    const role = await this.getMemberRole(workspaceId, createdBy);
-    this.assertCanWrite(role);
+    await this.getMemberRole(workspaceId, createdBy);
+
+    let initialMembers: string[] = [];
+
+    if (isPrivate) {
+      initialMembers = Array.from(new Set([createdBy, ...memberIds.filter(Boolean)]));
+      for (const mid of initialMembers) {
+        await this.getMemberRole(workspaceId, mid);
+      }
+    } else {
+      // For public channels, add workspace members by default
+      const workspace = await Workspace.findById(workspaceId);
+      const allWorkspaceMembers = workspace ? workspace.members.map((m) => m.userId.toString()) : [];
+      initialMembers = Array.from(
+        new Set([createdBy, ...allWorkspaceMembers, ...memberIds.filter(Boolean)])
+      );
+    }
 
     const channel = await Channel.create({
       workspaceId,
@@ -61,16 +66,16 @@ export class SlackService {
       isPrivate,
       type: 'channel',
       createdBy,
-      members: [createdBy]
+      members: initialMembers
     });
+
+    await channel.populate('members', 'name email avatar');
+    await channel.populate('createdBy', 'name email avatar');
 
     logger.info(`Channel created: #${channel.name} (${channel._id}) by ${createdBy}`);
     return channel;
   }
 
-  /**
-   * Create or reuse a 1-on-1 DM channel between two workspace members.
-   */
   public static async createOrGetDM(
     workspaceId: string,
     currentUserId: string,
@@ -80,13 +85,9 @@ export class SlackService {
       throw new BadRequestError('Cannot start a DM with yourself');
     }
 
-    const role = await this.getMemberRole(workspaceId, currentUserId);
-    this.assertCanWrite(role);
-
-    // Target must also be a workspace member
+    await this.getMemberRole(workspaceId, currentUserId);
     await this.getMemberRole(workspaceId, targetUserId);
 
-    // Deterministic DM name so duplicates are avoided
     const sorted = [currentUserId, targetUserId].sort();
     const dmName = `dm-${sorted[0]}-${sorted[1]}`;
 
@@ -94,7 +95,7 @@ export class SlackService {
       workspaceId,
       type: 'dm',
       name: dmName
-    });
+    }).populate('members', 'name email avatar');
 
     if (existing) {
       return existing;
@@ -110,40 +111,34 @@ export class SlackService {
       members: [currentUserId, targetUserId]
     });
 
+    await channel.populate('members', 'name email avatar');
+
     logger.info(`DM created between ${currentUserId} and ${targetUserId}`);
     return channel;
   }
 
-  /**
-   * Get workspace channels accessible by the user.
-   * Public channels + private/DM where user is a member.
-   */
   public static async getWorkspaceChannels(
     workspaceId: string,
     userId: string
   ): Promise<IChannel[]> {
-    // Must be workspace member (any role including viewer)
     await this.getMemberRole(workspaceId, userId);
 
+    // Only return channels where the user is an active member
     return Channel.find({
       workspaceId,
-      $or: [
-        { type: 'channel', isPrivate: false },
-        { members: userId }
-      ]
-    }).sort({ type: 1, name: 1 });
+      members: userId
+    })
+      .populate('members', 'name email avatar')
+      .populate('createdBy', 'name email avatar')
+      .sort({ type: 1, name: 1 });
   }
 
-  /**
-   * Delete/archive channel — Workspace Owner OR channel creator only.
-   */
   public static async deleteChannel(channelId: string, userId: string): Promise<void> {
     const channel = await Channel.findById(channelId);
     if (!channel) {
       throw new NotFoundError('Channel not found');
     }
 
-    // DMs should not be deleted via this flow (optional hard rule)
     if (channel.type === 'dm') {
       throw new ForbiddenError('Direct message threads cannot be deleted');
     }
@@ -162,9 +157,6 @@ export class SlackService {
     logger.info(`Channel deleted: ${channelId} by ${userId}`);
   }
 
-  /**
-   * Save message, enforce RBAC, broadcast via socket.
-   */
   public static async sendMessage(
     channelId: string,
     senderId: string,
@@ -176,15 +168,12 @@ export class SlackService {
       throw new NotFoundError('Channel not found');
     }
 
-    const role = await this.getMemberRole(channel.workspaceId.toString(), senderId);
-    this.assertCanWrite(role);
+    await this.getMemberRole(channel.workspaceId.toString(), senderId);
 
-    // Private / DM: sender must be a channel member
-    if (channel.isPrivate || channel.type === 'dm') {
-      const isMember = channel.members.some((m) => m.toString() === senderId);
-      if (!isMember) {
-        throw new ForbiddenError('You are not a member of this channel');
-      }
+    // Strictly check if sender is a member of the channel
+    const isMember = channel.members.some((m) => m.toString() === senderId.toString());
+    if (!isMember) {
+      throw new ForbiddenError('You are not a member of this channel');
     }
 
     const message = await Message.create({
@@ -195,22 +184,48 @@ export class SlackService {
     });
 
     await message.populate('senderId', 'name email avatar');
+    const senderName = (message.senderId as any)?.name || 'User';
 
-    // Realtime broadcast to channel room
+    // Broadcast chat message to active channel room
     try {
       const io = getIO();
       io.to(`channel:${channelId}`).emit('message:new', message);
-    } catch {
-      // Socket may not be ready in tests — ignore
+    } catch (err) {
+      logger.error('Socket emit failed for message', err);
     }
+
+    // Process real-time notifications in background
+    process.nextTick(async () => {
+      try {
+        const title = channel.type === 'dm' 
+          ? `New DM from ${senderName}` 
+          : `New message in #${channel.name}`;
+          
+        const link = `/workspaces/${channel.workspaceId}/channels/${channel._id}`;
+        
+        // Target ONLY active channel members (excluding sender)
+        const targets = channel.members.filter((m) => m.toString() !== senderId.toString());
+
+        for (const targetId of targets) {
+          await NotificationService.createNotification({
+            userId: targetId.toString(),
+            senderId: senderId,
+            type: 'message',
+            title,
+            message: content.length > 60 ? `${content.substring(0, 60)}...` : content,
+            link,
+            sendEmail: false
+          });
+        }
+      } catch (err) {
+        logger.error('Failed to send slack notifications', err);
+      }
+    });
 
     logger.info(`Message sent in channel ${channelId} by user ${senderId}`);
     return message;
   }
 
-  /**
-   * Cursor-based message pagination.
-   */
   public static async getChannelMessages(
     channelId: string,
     userId: string,
@@ -222,14 +237,12 @@ export class SlackService {
       throw new NotFoundError('Channel not found');
     }
 
-    // Must belong to workspace
     await this.getMemberRole(channel.workspaceId.toString(), userId);
 
-    if (channel.isPrivate || channel.type === 'dm') {
-      const isMember = channel.members.some((m) => m.toString() === userId);
-      if (!isMember) {
-        throw new ForbiddenError('You are not a member of this channel');
-      }
+    // Strictly check membership for reading messages
+    const isMember = channel.members.some((m) => m.toString() === userId.toString());
+    if (!isMember) {
+      throw new ForbiddenError('You are not a member of this channel');
     }
 
     const query: any = { channelId };
@@ -256,5 +269,126 @@ export class SlackService {
       nextCursor,
       hasMore
     };
+  }
+
+  public static async removeChannelMember(
+    channelId: string,
+    userId: string,
+    memberIdToRemove: string
+  ): Promise<IChannel> {
+    const channel = await Channel.findById(channelId);
+    if (!channel) {
+      throw new NotFoundError('Channel not found');
+    }
+
+    if (channel.type === 'dm') {
+      throw new BadRequestError('Cannot remove members from a direct message');
+    }
+
+    const workspace = await Workspace.findById(channel.workspaceId);
+    if (!workspace) {
+      throw new NotFoundError('Workspace not found');
+    }
+
+    const userMembership = workspace.members.find((m) => m.userId.toString() === userId);
+    if (!userMembership) {
+      throw new ForbiddenError('You are not a member of this workspace');
+    }
+
+    const isWorkspaceOwner = userMembership.role === 'owner' || workspace.ownerId.toString() === userId;
+    const channelCreatorId = channel.createdBy.toString();
+    const isChannelCreator = channelCreatorId === userId;
+
+    if (!isWorkspaceOwner && !isChannelCreator) {
+      throw new ForbiddenError('Only the workspace owner or channel creator can remove members from this group');
+    }
+
+    if (memberIdToRemove === userId) {
+      throw new BadRequestError('Use the leave channel option instead of removing yourself');
+    }
+
+    channel.members = (channel.members as any[]).filter(
+      (m) => (m._id ? m._id.toString() : m.toString()) !== memberIdToRemove
+    );
+
+    await channel.save();
+    await channel.populate('members', 'name email avatar');
+    await channel.populate('createdBy', 'name email avatar');
+
+    // Sync member list and tell removed user to leave this channel room
+    try {
+      const io = getIO();
+      io.to(`channel:${channelId}`).emit('channel:members_updated', channel);
+      io.to(`user:${memberIdToRemove}`).emit('channel:member_removed', {
+        channelId,
+        workspaceId: channel.workspaceId.toString(),
+      });
+    } catch (err) {
+      logger.error('Socket emit failed for channel member remove', err);
+    }
+
+    return channel;
+  }
+
+  public static async addChannelMember(
+    channelId: string,
+    userId: string,
+    memberIdToAdd: string
+  ): Promise<IChannel> {
+    const channel = await Channel.findById(channelId);
+    if (!channel) {
+      throw new NotFoundError('Channel not found');
+    }
+
+    if (channel.type === 'dm') {
+      throw new BadRequestError('Cannot add members to a direct message');
+    }
+
+    const workspace = await Workspace.findById(channel.workspaceId);
+    if (!workspace) {
+      throw new NotFoundError('Workspace not found');
+    }
+
+    const userMembership = workspace.members.find((m) => m.userId.toString() === userId);
+    if (!userMembership) {
+      throw new ForbiddenError('You are not a member of this workspace');
+    }
+
+    const isWorkspaceOwner = userMembership.role === 'owner' || workspace.ownerId.toString() === userId;
+    const channelCreatorId = channel.createdBy.toString();
+    const isChannelCreator = channelCreatorId === userId;
+
+    if (!isWorkspaceOwner && !isChannelCreator) {
+      throw new ForbiddenError('Only the workspace owner or channel creator can add members to this group');
+    }
+
+    const targetInWorkspace = workspace.members.some(
+      (m) => m.userId.toString() === memberIdToAdd
+    );
+    if (!targetInWorkspace) {
+      throw new BadRequestError('User is not a member of this workspace');
+    }
+
+    const alreadyMember = (channel.members as any[]).some(
+      (m) => (m._id ? m._id.toString() : m.toString()) === memberIdToAdd
+    );
+
+    if (!alreadyMember) {
+      channel.members.push(new Types.ObjectId(memberIdToAdd));
+      await channel.save();
+    }
+
+    await channel.populate('members', 'name email avatar');
+    await channel.populate('createdBy', 'name email avatar');
+
+    // Notify other clients so member dropdown stays in sync
+    try {
+      const io = getIO();
+      io.to(`channel:${channelId}`).emit('channel:members_updated', channel);
+    } catch (err) {
+      logger.error('Socket emit failed for channel member add', err);
+    }
+
+    return channel;
   }
 }

@@ -5,7 +5,8 @@ export type NotificationType =
   | 'card_assign' 
   | 'comment' 
   | 'workspace_invite' 
-  | 'system';
+  | 'system'
+  | 'message';
 
 export interface INotification extends Document {
   _id: Types.ObjectId;
@@ -35,7 +36,7 @@ const notificationSchema = new Schema<INotification>(
     type: {
       type: String,
       required: true,
-      enum: ['mention', 'card_assign', 'comment', 'workspace_invite', 'system']
+      enum: ['mention', 'card_assign', 'comment', 'workspace_invite', 'system', 'message']
     },
     title: {
       type: String,
