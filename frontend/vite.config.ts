@@ -13,9 +13,9 @@ export default defineConfig({
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts-cache' }
-          }
-        ]
+            options: { cacheName: 'google-fonts-cache' },
+          },
+        ],
       },
       manifest: {
         name: 'CollabSuite',
@@ -24,9 +24,9 @@ export default defineConfig({
         theme_color: '#ffffff',
         icons: [
           { src: 'favicon.svg', sizes: '192x192', type: 'image/svg+xml' },
-          { src: 'favicon.svg', sizes: '512x512', type: 'image/svg+xml' }
-        ]
-      }
-    })
+          { src: 'favicon.svg', sizes: '512x512', type: 'image/svg+xml' },
+        ],
+      },
+    }),
   ],
 });
