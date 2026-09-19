@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthLayout } from './layouts/AuthLayout';
@@ -19,7 +20,6 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { ToastContainer } from './components/common/ToastContainer';
 import { useWorkspaceStore } from './store/useWorkspaceStore';
 import { useThemeStore } from './store/useThemeStore';
-import { useEffect } from 'react';
 
 const DashboardRedirect = () => {
   const { activeWorkspace, workspaces, isLoading } = useWorkspaceStore();
@@ -40,17 +40,16 @@ const DashboardRedirect = () => {
     return <Navigate to={`/workspaces/${workspaces[0]._id}`} replace />;
   }
 
-  // No workspace: DashboardLayout empty state will handle it
   return <WorkspaceOverviewPage />;
 };
 
 function App() {
+  const initTheme = useThemeStore((state) => state.initTheme);
 
-
-    const initTheme = useThemeStore((state) => state.initTheme);
-     useEffect(() => {
-    initTheme(); 
+  useEffect(() => {
+    initTheme();
   }, [initTheme]);
+
   return (
     <BrowserRouter>
       <ToastContainer />
