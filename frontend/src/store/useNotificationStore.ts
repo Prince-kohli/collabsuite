@@ -52,7 +52,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         return { notifications, unreadCount };
       });
     } catch (err) {
-      console.error('Failed to mark notification as read', err);
+      // Silent catch for notification read failure
     }
   },
 
@@ -64,9 +64,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount: 0,
       }));
     } catch (err) {
-      console.error('Failed to mark all as read', err);
+      // Silent catch
     }
   },
+
   deleteOne: async (id: string) => {
     try {
       await deleteNotificationApi(id);
@@ -76,7 +77,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         return { notifications, unreadCount };
       });
     } catch (err) {
-      console.error('Failed to delete notification', err);
       throw err;
     }
   },
@@ -86,7 +86,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       await clearAllNotificationsApi();
       set({ notifications: [], unreadCount: 0 });
     } catch (err) {
-      console.error('Failed to clear notifications', err);
       throw err;
     }
   },
@@ -102,10 +101,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         return { notifications, unreadCount };
       });
     } catch (err) {
-      console.error('Failed to delete notifications', err);
       throw err;
     }
   },
+
   addSocketNotification: (newNotification: NotificationItem) => {
     set((state) => ({
       notifications: [newNotification, ...state.notifications],
@@ -120,12 +119,24 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   initSocketListeners: () => {
-    const socket = getSocket();
-    if (!socket) return;
+    const attachListener = () => {
+      const socket = getSocket();
+      if (!socket) return false;
 
-    socket.off('notification:new');
-    socket.on('notification:new', (notification: NotificationItem) => {
-      get().addSocketNotification(notification);
-    });
+      socket.off('notification:new');
+      socket.on('notification:new', (notification: NotificationItem) => {
+        get().addSocketNotification(notification);
+      });
+      return true;
+    };
+
+    // Attach immediately or retry briefly if socket connection is pending
+    if (!attachListener()) {
+      const interval = setInterval(() => {
+        if (attachListener()) {
+          clearInterval(interval);
+        }
+      }, 1000);
+    }
   },
 }));

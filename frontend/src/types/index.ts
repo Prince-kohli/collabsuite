@@ -88,17 +88,24 @@ export interface Doc {
   updatedAt: string;
 }
 
+export interface ChannelMemberUser {
+  _id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+}
+
 export interface Channel {
   _id: string;
   workspaceId: string;
   name: string;
   topic?: string;
   isPrivate?: boolean;
-  members?: string[];
+  members?: Array<string | ChannelMemberUser | any>;
   createdAt?: string;
   updatedAt?: string;
   type?: 'channel' | 'dm';
-createdBy?: string | { _id: string; name?: string };
+  createdBy?: string | { _id: string; name?: string; email?: string; avatar?: string };
 }
 
 export interface Message {
