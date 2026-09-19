@@ -18,6 +18,8 @@ import { SlackPage } from './pages/SlackPage';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { ToastContainer } from './components/common/ToastContainer';
 import { useWorkspaceStore } from './store/useWorkspaceStore';
+import { useThemeStore } from './store/useThemeStore';
+import { useEffect } from 'react';
 
 const DashboardRedirect = () => {
   const { activeWorkspace, workspaces, isLoading } = useWorkspaceStore();
@@ -43,6 +45,12 @@ const DashboardRedirect = () => {
 };
 
 function App() {
+
+
+    const initTheme = useThemeStore((state) => state.initTheme);
+     useEffect(() => {
+    initTheme(); 
+  }, [initTheme]);
   return (
     <BrowserRouter>
       <ToastContainer />
