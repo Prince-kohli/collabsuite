@@ -14,6 +14,40 @@ interface ChannelSidebarProps {
   onStartDM?: (userId: string) => void;
 }
 
+function getMemberMeta(userField: unknown): { id: string; name: string } | null {
+  if (!userField) return null;
+  if (typeof userField === 'string') return { id: userField, name: 'User' };
+  const u = userField as { _id?: string; id?: string; name?: string };
+  const id = u._id || u.id || '';
+  if (!id) return null;
+  return { id, name: u.name || 'User' };
+}
+
+function getDmTargetId(
+  channel: Channel,
+  myId?: string
+): string | null {
+  const rawMembers = (channel.members || []) as unknown[];
+  const memberIds = rawMembers
+    .map((m) => {
+      if (typeof m === 'string') return m;
+      const obj = m as { _id?: string; id?: string };
+      return obj._id || obj.id || '';
+    })
+    .filter(Boolean);
+
+  return memberIds.find((id) => id && id !== myId) || null;
+}
+
+function getDmDisplayName(
+  otherId: string | null,
+  workspaceMembers: { id: string; name: string }[]
+): string {
+  if (!otherId) return 'Direct Message';
+  const found = workspaceMembers.find((m) => m.id === otherId);
+  return found?.name || 'Direct Message';
+}
+
 export const ChannelSidebar = ({
   channels,
   activeChannelId,
@@ -23,10 +57,11 @@ export const ChannelSidebar = ({
 }: ChannelSidebarProps) => {
   const { currentUserRole, activeWorkspace } = useWorkspaceStore();
   const { user } = useAuthStore();
-  const { deleteChannel } = useSlackStore();
+  const { deleteChannel, onlineUserIds } = useSlackStore();
   const showToast = useToastStore((s) => s.showToast);
 
-  const canCreate = currentUserRole === 'owner' || currentUserRole === 'member';
+  // Everyone can create channels now!
+  const canCreate = !!currentUserRole; 
   const myId = user?.id;
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -35,6 +70,11 @@ export const ChannelSidebar = ({
 
   const normalChannels = channels.filter((c) => (c.type || 'channel') !== 'dm');
   const dmChannels = channels.filter((c) => c.type === 'dm');
+
+  const members =
+    activeWorkspace?.members
+      ?.map((m) => getMemberMeta(m.userId))
+      .filter((m): m is { id: string; name: string } => !!m && m.id !== myId) || [];
 
   const canDeleteChannel = (channel: Channel) => {
     if ((channel.type || 'channel') === 'dm') return false;
@@ -70,20 +110,6 @@ export const ChannelSidebar = ({
       setIsDeleting(false);
     }
   };
-
-  const members =
-    activeWorkspace?.members
-      ?.map((m) => {
-        const id =
-          typeof m.userId === 'string'
-            ? m.userId
-            : (m.userId as any)?._id || (m.userId as any)?.id;
-        const name =
-          typeof m.userId === 'string' ? 'User' : (m.userId as any)?.name || 'User';
-        if (!id || id === myId) return null;
-        return { id, name };
-      })
-      .filter(Boolean) || [];
 
   return (
     <div className="w-60 border-r border-slate-200 bg-slate-50 p-3 flex flex-col justify-between shrink-0">
@@ -158,21 +184,33 @@ export const ChannelSidebar = ({
           <div className="space-y-0.5 overflow-y-auto max-h-40">
             {dmChannels.map((channel) => {
               const isActive = activeChannelId === channel._id;
+              const otherId = getDmTargetId(channel, myId);
+              const dmName = getDmDisplayName(otherId, members);
+              const initial = dmName.charAt(0).toUpperCase();
+              const isOnline = otherId ? onlineUserIds.includes(otherId) : false;
+
               return (
                 <button
                   key={channel._id}
                   type="button"
                   onClick={() => onSelectChannel(channel)}
-                  className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left ${
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left ${
                     isActive
                       ? 'bg-indigo-50 text-indigo-600 font-semibold'
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
-                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
-                    DM
-                  </span>
-                  <span className="truncate">Direct Message</span>
+                  <div className="relative shrink-0">
+                    <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
+                      {initial}
+                    </span>
+                    <span
+                      className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${
+                        isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+                      }`}
+                    />
+                  </div>
+                  <span className="truncate">{dmName}</span>
                 </button>
               );
             })}
@@ -180,16 +218,24 @@ export const ChannelSidebar = ({
             {canCreate && members.length > 0 && (
               <div className="pt-2 border-t border-slate-200 mt-2 space-y-0.5">
                 <p className="px-2 text-[10px] text-slate-400 font-semibold uppercase">Start DM</p>
-                {members.map((m: any) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => onStartDM?.(m.id)}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100 cursor-pointer truncate"
-                  >
-                    {m.name}
-                  </button>
-                ))}
+                {members.map((m) => {
+                  const isOnline = onlineUserIds.includes(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => onStartDM?.(m.id)}
+                      className="w-full flex items-center gap-2 text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100 cursor-pointer truncate"
+                    >
+                       <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          isOnline ? 'bg-emerald-500' : 'bg-slate-300'
+                        }`}
+                      />
+                      {m.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

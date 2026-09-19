@@ -9,7 +9,8 @@ export const createChannelSchema = z.object({
       .max(80)
       .regex(/^[a-z0-9-_]+$/, 'Channel name must be lowercase letters, numbers, - or _'),
     topic: z.string().max(250).optional(),
-    isPrivate: z.boolean().optional()
+    isPrivate: z.boolean().optional(),
+    memberIds: z.array(z.string()).optional()
   })
 });
 
@@ -33,5 +34,18 @@ export const sendMessageSchema = z.object({
         })
       )
       .optional()
+  })
+});
+
+export const addChannelMemberSchema = z.object({
+  body: z.object({
+    memberId: z.string().min(1, 'memberId is required')
+  })
+});
+
+export const removeChannelMemberSchema = z.object({
+  params: z.object({
+    channelId: z.string().min(1, 'channelId is required'),
+    memberId: z.string().min(1, 'memberId is required')
   })
 });

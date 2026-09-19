@@ -5,7 +5,9 @@ import {
   getWorkspaceChannels,
   deleteChannel,
   sendMessage,
-  getChannelMessages
+  getChannelMessages,
+  addChannelMember,
+  removeChannelMember
 } from '../controllers/slack.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireWorkspaceRole } from '../middlewares/rbac.middleware';
@@ -13,7 +15,9 @@ import { validate } from '../middlewares/validate.middleware';
 import {
   createChannelSchema,
   createDMSchema,
-  sendMessageSchema
+  sendMessageSchema,
+  addChannelMemberSchema,
+  removeChannelMemberSchema
 } from '../validations/slack.validation';
 
 const router = Router();
@@ -23,11 +27,10 @@ router.use(authenticate);
 /**
  * @route   POST /api/v1/slack/channels
  * @desc    Create a new channel
- * @access  Private (Owner, Member)
  */
 router.post(
   '/channels',
-  requireWorkspaceRole(['owner', 'member']),
+  requireWorkspaceRole(['owner', 'member', 'viewer']),
   validate(createChannelSchema),
   createChannel
 );
@@ -35,11 +38,10 @@ router.post(
 /**
  * @route   POST /api/v1/slack/dms
  * @desc    Create or get existing DM
- * @access  Private (Owner, Member)
  */
 router.post(
   '/dms',
-  requireWorkspaceRole(['owner', 'member']),
+  requireWorkspaceRole(['owner', 'member', 'viewer']),
   validate(createDMSchema),
   createOrGetDM
 );
@@ -47,7 +49,6 @@ router.post(
 /**
  * @route   GET /api/v1/slack/workspace/:workspaceId/channels
  * @desc    List accessible channels + DMs
- * @access  Private (Owner, Member, Viewer)
  */
 router.get(
   '/workspace/:workspaceId/channels',
@@ -56,24 +57,41 @@ router.get(
 );
 
 /**
- * @route   DELETE /api/v1/slack/channels/:channelId
- * @desc    Delete channel (owner or creator)
- * @access  Private
- */
-router.delete('/channels/:channelId', deleteChannel);
-
-/**
  * @route   POST /api/v1/slack/messages
  * @desc    Send message
- * @access  Private (RBAC inside service)
  */
 router.post('/messages', validate(sendMessageSchema), sendMessage);
 
 /**
  * @route   GET /api/v1/slack/channels/:channelId/messages
  * @desc    Cursor paginated messages
- * @access  Private
  */
 router.get('/channels/:channelId/messages', getChannelMessages);
+
+/**
+ * @route   POST /api/v1/slack/channels/:channelId/members
+ * @desc    Add a member to a channel
+ */
+router.post(
+  '/channels/:channelId/members',
+  validate(addChannelMemberSchema),
+  addChannelMember
+);
+
+/**
+ * @route   DELETE /api/v1/slack/channels/:channelId/members/:memberId
+ * @desc    Remove a member from a channel
+ */
+router.delete(
+  '/channels/:channelId/members/:memberId',
+  validate(removeChannelMemberSchema),
+  removeChannelMember
+);
+
+/**
+ * @route   DELETE /api/v1/slack/channels/:channelId
+ * @desc    Delete channel (owner or creator)
+ */
+router.delete('/channels/:channelId', deleteChannel);
 
 export default router;

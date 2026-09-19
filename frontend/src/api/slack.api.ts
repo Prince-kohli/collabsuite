@@ -6,6 +6,7 @@ export interface CreateChannelPayload {
   name: string;
   topic?: string;
   isPrivate?: boolean;
+  memberIds?: string[];
 }
 
 export interface CreateDMPayload {
@@ -84,6 +85,27 @@ export const getChannelMessagesApi = async (
 
   const response = await apiClient.get<ApiResponse<CursorPaginatedMessagesResponse>>(
     `/slack/channels/${channelId}/messages?${params.toString()}`
+  );
+  return response.data;
+};
+
+export const addChannelMemberApi = async (
+  channelId: string,
+  memberId: string
+): Promise<ApiResponse<{ channel: Channel }>> => {
+  const response = await apiClient.post<ApiResponse<{ channel: Channel }>>(
+    `/slack/channels/${channelId}/members`,
+    { memberId }
+  );
+  return response.data;
+};
+
+export const removeChannelMemberApi = async (
+  channelId: string,
+  memberId: string
+): Promise<ApiResponse<{ channel: Channel }>> => {
+  const response = await apiClient.delete<ApiResponse<{ channel: Channel }>>(
+    `/slack/channels/${channelId}/members/${memberId}`
   );
   return response.data;
 };

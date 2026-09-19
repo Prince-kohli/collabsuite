@@ -1,47 +1,67 @@
-import type { Message, User } from '../../types';
+import type { Message } from '../../types';
+import { useAuthStore } from '../../store/useAuthStore';
 
 interface MessageItemProps {
   message: Message;
+  status?: 'sending' | 'sent' | 'delivered';
 }
 
-export const MessageItem = ({ message }: MessageItemProps) => {
-  const getSenderDetails = (sender: User | string) => {
-    if (typeof sender === 'object' && sender !== null) {
-      return {
-        name: sender.name || 'Unknown User',
-        avatarInitial: sender.name ? sender.name.charAt(0).toUpperCase() : 'U',
-      };
-    }
-    return {
-      name: 'User',
-      avatarInitial: 'U',
-    };
-  };
+export const MessageItem = ({ message, status = 'delivered' }: MessageItemProps) => {
+  const { user } = useAuthStore();
 
-  const sender = getSenderDetails(message.senderId);
-  const formattedTime = message.createdAt
+  const myId = user?.id || (user as any)?._id;
+
+  const senderObj = typeof message.senderId === 'object' ? (message.senderId as any) : null;
+  const senderId = senderObj?._id || senderObj?.id || String(message.senderId || '');
+
+  const senderName = senderObj?.name || 'User';
+  const initial = senderName.charAt(0).toUpperCase();
+
+  const isMine = !!myId && String(myId) === String(senderId);
+
+  const time = message.createdAt
     ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
 
-  return (
-    <div className="flex items-start gap-3 group py-1.5 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 px-2 rounded-lg transition-colors">
-      <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-        {sender.avatarInitial}
-      </div>
+  const Ticks = () => {
+    if (!isMine) return null;
+    if (status === 'sending') {
+      return <span className="text-[10px] text-slate-400 ml-1">✓</span>;
+    }
+    return (
+      <span className="text-[10px] ml-1 font-bold text-emerald-700">
+        ✓✓
+      </span>
+    );
+  };
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-            {sender.name}
-          </span>
-          <span className="text-[10px] text-zinc-400">
-            {formattedTime}
-          </span>
+  if (isMine) {
+    return (
+      <div className="flex justify-end py-1 px-2">
+        <div className="max-w-[75%] rounded-2xl rounded-tr-none bg-[#DCF8C6] text-slate-900 px-3 py-2 shadow-xs border border-emerald-200/60">
+          <p className="text-xs whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+          <div className="flex items-center justify-end gap-1 mt-1">
+            <span className="text-[9px] text-slate-500">{time}</span>
+            <Ticks />
+          </div>
         </div>
+      </div>
+    );
+  }
 
-        <p className="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 whitespace-pre-wrap leading-relaxed">
+  return (
+    <div className="flex justify-start items-end gap-2 py-1 px-2">
+      <div className="w-7 h-7 rounded-full bg-slate-300 text-slate-700 text-[10px] font-bold flex items-center justify-center shrink-0 shadow-xs">
+        {initial}
+      </div>
+      <div className="max-w-[75%] rounded-2xl rounded-tl-none bg-white border border-slate-200 px-3 py-2 shadow-xs">
+        <p className="text-[10px] font-bold text-indigo-600 mb-0.5">{senderName}</p>
+        <p className="text-xs text-slate-800 whitespace-pre-wrap break-words leading-relaxed">
           {message.content}
         </p>
+        <div className="flex justify-end mt-1">
+          <span className="text-[9px] text-slate-400">{time}</span>
+        </div>
       </div>
     </div>
   );

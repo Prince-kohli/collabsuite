@@ -10,12 +10,17 @@ interface AuthenticatedSocket extends Socket {
 }
 
 let ioInstance: Server | null = null;
+const onlineUsers = new Map<string, Set<string>>(); // userId -> Set of socketIds
 
 export const getIO = (): Server => {
   if (!ioInstance) {
     throw new Error('Socket.io has not been initialized');
   }
   return ioInstance;
+};
+
+export const getOnlineUserIds = (): string[] => {
+  return Array.from(onlineUsers.keys());
 };
 
 export const initializeSocketIO = (httpServer: HttpServer): Server => {
@@ -57,11 +62,27 @@ export const initializeSocketIO = (httpServer: HttpServer): Server => {
   io.on('connection', (socket: AuthenticatedSocket) => {
     logger.info(`Socket client connected: ${socket.id} (User: ${socket.userId})`);
 
-    // Personal room for notifications
+    // Personal room for notifications & online status tracking
     if (socket.userId) {
       socket.join(`user:${socket.userId}`);
       logger.info(`User ${socket.userId} joined personal socket room: user:${socket.userId}`);
+
+      const userSockets = onlineUsers.get(socket.userId) || new Set<string>();
+      const isFirstConnection = userSockets.size === 0;
+      userSockets.add(socket.id);
+      onlineUsers.set(socket.userId, userSockets);
+
+      if (isFirstConnection) {
+        io.emit('user:status', { userId: socket.userId, status: 'online' });
+      }
+
+      // Send initial list of all online users to the connected client
+      socket.emit('users:online', Array.from(onlineUsers.keys()));
     }
+
+    socket.on('get:online_users', () => {
+      socket.emit('users:online', Array.from(onlineUsers.keys()));
+    });
 
     socket.on('join:channel', (channelId: string) => {
       socket.join(`channel:${channelId}`);
@@ -113,6 +134,15 @@ export const initializeSocketIO = (httpServer: HttpServer): Server => {
 
     socket.on('disconnect', () => {
       logger.info(`Socket client disconnected: ${socket.id} (User: ${socket.userId})`);
+
+      if (socket.userId && onlineUsers.has(socket.userId)) {
+        const userSockets = onlineUsers.get(socket.userId)!;
+        userSockets.delete(socket.id);
+        if (userSockets.size === 0) {
+          onlineUsers.delete(socket.userId);
+          io.emit('user:status', { userId: socket.userId, status: 'offline' });
+        }
+      }
     });
   });
 

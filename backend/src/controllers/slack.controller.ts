@@ -3,9 +3,16 @@ import { SlackService } from '../services/slack.service';
 
 export const createChannel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { workspaceId, name, topic, isPrivate } = req.body;
+   const { workspaceId, name, topic, isPrivate, memberIds } = req.body;
     const userId = req.user!.userId;
-    const channel = await SlackService.createChannel(workspaceId, userId, name, topic, isPrivate);
+    const channel = await SlackService.createChannel(
+      workspaceId,
+      userId,
+      name,
+      topic,
+      isPrivate,
+      memberIds || []
+    );
 
     res.status(201).json({
       success: true,
@@ -99,6 +106,41 @@ export const getChannelMessages = async (req: Request, res: Response, next: Next
       statusCode: 200,
       message: 'Channel messages retrieved successfully',
       data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addChannelMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { channelId } = req.params;
+    const { memberId } = req.body;
+    const userId = req.user!.userId;
+    const channel = await SlackService.addChannelMember(channelId, userId, memberId);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Member added to channel successfully',
+      data: { channel }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeChannelMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { channelId, memberId } = req.params;
+    const userId = req.user!.userId;
+    const channel = await SlackService.removeChannelMember(channelId, userId, memberId);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Member removed from channel successfully',
+      data: { channel }
     });
   } catch (error) {
     next(error);

@@ -7,6 +7,7 @@ import { useToastStore } from '../store/useToastStore';
 import { ChannelSidebar } from '../components/slack/ChannelSidebar';
 import { MessageItem } from '../components/slack/MessageItem';
 import { CreateChannelModal } from '../components/slack/CreateChannelModal';
+import { ChannelMembersDropdown } from '../components/slack/ChannelMembersDropdown';
 
 export const SlackPage = () => {
   const { workspaceId, channelId } = useParams<{ workspaceId: string; channelId?: string }>();
@@ -42,22 +43,29 @@ export const SlackPage = () => {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
-  const isViewer = currentUserRole === 'viewer';
-  const canWrite = currentUserRole === 'owner' || currentUserRole === 'member';
+  const canWrite = !!currentUserRole;
 
   useEffect(() => {
     if (workspaceId) fetchChannels(workspaceId);
     initSocketListeners();
   }, [workspaceId, fetchChannels, initSocketListeners]);
 
+  // Handle URL param channel change & auto-refetch if channel is not present in store
   useEffect(() => {
-    if (channelId && channels.length > 0) {
+    if (!channelId) return;
+
+    if (channels.length > 0) {
       const found = channels.find((c) => c._id === channelId);
-      if (found && activeChannel?._id !== found._id) {
-        setActiveChannel(found);
+      if (found) {
+        if (activeChannel?._id !== found._id) {
+          setActiveChannel(found);
+        }
+      } else if (workspaceId) {
+        // If channel or DM is not in local state (e.g., clicked from notification), refetch channels
+        fetchChannels(workspaceId);
       }
     }
-  }, [channelId, channels, activeChannel, setActiveChannel]);
+  }, [channelId, channels, activeChannel, setActiveChannel, fetchChannels, workspaceId]);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -154,7 +162,7 @@ export const SlackPage = () => {
     activeChannel?.type === 'dm'
       ? 'Direct Message'
       : activeChannel
-        ? `${activeChannel.isPrivate ? 'P' : '#'}${activeChannel.name}`
+        ? `#${activeChannel.name}`
         : '';
 
   return (
@@ -167,25 +175,59 @@ export const SlackPage = () => {
         onStartDM={handleStartDM}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 bg-white">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#E5DDD5]">
         {activeChannel ? (
           <>
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between shrink-0 bg-slate-50">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between shrink-0 bg-slate-50 gap-2">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">{headerTitle}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    {activeChannel.type === 'dm' ? (
+                      <span>Direct Message</span>
+                    ) : (
+                      <>
+                        {activeChannel.isPrivate ? (
+                          <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                          </svg>
+                        ) : (
+                          <span className="text-slate-400 font-bold text-base leading-none">#</span>
+                        )}
+                        <span>{activeChannel.name}</span>
+                      </>
+                    )}
+                  </h2>
+                  {activeChannel.type !== 'dm' && activeChannel.isPrivate && (
+                    <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                      Private
+                    </span>
+                  )}
+                </div>
                 {activeChannel.topic && activeChannel.type !== 'dm' && (
                   <p className="text-xs text-slate-500 mt-0.5">{activeChannel.topic}</p>
                 )}
               </div>
-              <span className="text-[11px] font-medium text-slate-400">
-                Workspace: {activeWorkspace?.name}
-              </span>
+
+              <div className="flex items-center gap-3 shrink-0">
+                {activeChannel.type !== 'dm' && (
+                  <ChannelMembersDropdown
+                    channel={activeChannel}
+                    workspace={activeWorkspace}
+                    currentUserRole={currentUserRole}
+                    currentUserId={user?.id}
+                  />
+                )}
+                <span className="text-[11px] font-medium text-slate-400 hidden md:inline">
+                  Workspace: {activeWorkspace?.name}
+                </span>
+              </div>
             </div>
 
             <div
               ref={chatContainerRef}
               onScroll={handleScroll}
-              className="flex-1 p-4 overflow-y-auto space-y-1"
+              className="flex-1 p-4 overflow-y-auto space-y-2"
             >
               {hasMoreMessages && (
                 <div className="text-center py-2">
@@ -193,7 +235,7 @@ export const SlackPage = () => {
                     type="button"
                     onClick={fetchMoreMessages}
                     disabled={isLoadingMore}
-                    className="px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full hover:bg-indigo-100 disabled:opacity-50 cursor-pointer"
+                    className="px-3 py-1 text-xs font-medium text-indigo-600 bg-white shadow-xs rounded-full hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                   >
                     {isLoadingMore ? 'Loading older messages...' : 'Load older messages'}
                   </button>
@@ -201,9 +243,8 @@ export const SlackPage = () => {
               )}
 
               {messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-slate-400">
-                  <p className="text-xs">No messages yet.</p>
-                  <p className="text-[11px] mt-1">Start the conversation below.</p>
+                <div className="h-full flex flex-col items-center justify-center text-center text-slate-500">
+                  <p className="text-xs bg-white px-4 py-2 rounded-xl shadow-xs">No messages yet. Start the conversation!</p>
                 </div>
               ) : (
                 messages.map((msg) => <MessageItem key={msg._id} message={msg} />)
@@ -212,7 +253,7 @@ export const SlackPage = () => {
               <div ref={chatBottomRef} />
             </div>
 
-            <div className="px-4 pt-1 min-h-[20px]">
+            <div className="px-4 pt-1 min-h-[20px] bg-[#F0F2F5]">
               {typingLabel ? (
                 <p className="text-[11px] text-indigo-500 font-medium animate-pulse">{typingLabel}</p>
               ) : (
@@ -220,36 +261,32 @@ export const SlackPage = () => {
               )}
             </div>
 
-            <div className="p-4 border-t border-slate-200 shrink-0">
-              {isViewer ? (
-                <div className="px-4 py-3 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl">
-                  Viewer mode — you can read messages but cannot send.
-                </div>
-              ) : (
-                <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder={`Message ${headerTitle}...`}
-                    className="flex-1 px-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isSending || !inputText.trim()}
-                    className="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl transition-colors cursor-pointer"
-                  >
-                    {isSending ? 'Sending...' : 'Send'}
-                  </button>
-                </form>
-              )}
+            <div className="p-3 bg-[#F0F2F5] shrink-0">
+              <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  placeholder={`Message ${headerTitle}...`}
+                  className="flex-1 px-4 py-3 text-xs bg-white rounded-full focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 shadow-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={isSending || !inputText.trim()}
+                  className="w-10 h-10 flex items-center justify-center bg-[#00A884] hover:bg-emerald-600 disabled:opacity-50 text-white rounded-full transition-colors cursor-pointer shadow-sm"
+                >
+                  <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z" />
+                  </svg>
+                </button>
+              </form>
             </div>
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 p-8">
             <h3 className="text-sm font-bold text-slate-800 mb-1">Select or Create a Channel</h3>
             <p className="text-xs max-w-sm">
-              Choose a channel from the left sidebar to start chatting with team members.
+              Choose a channel from the left sidebar to start chatting.
             </p>
           </div>
         )}
