@@ -1,6 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type WorkspaceRole = 'owner' | 'member' | 'viewer';
 
 export interface IWorkspaceMember {
   userId: Types.ObjectId;
@@ -54,7 +54,7 @@ const workspaceSchema = new Schema<IWorkspace>(
         },
         role: {
           type: String,
-          enum: ['owner', 'admin', 'member', 'viewer'],
+          enum: ['owner', 'member', 'viewer'],
           default: 'member'
         },
         joinedAt: {
@@ -69,7 +69,6 @@ const workspaceSchema = new Schema<IWorkspace>(
   }
 );
 
-// Index for fast query of workspaces accessible by a user
 workspaceSchema.index({ 'members.userId': 1 });
 
 export const Workspace = model<IWorkspace>('Workspace', workspaceSchema);

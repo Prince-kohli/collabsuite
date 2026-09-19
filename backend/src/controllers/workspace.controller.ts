@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { WorkspaceService } from '../services/workspace.service';
+import { WorkspaceRole } from '../models/workspace.model';
 
-/**
- * Controller handler to create a workspace.
- */
 export const createWorkspace = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { name, description } = req.body;
@@ -21,9 +19,6 @@ export const createWorkspace = async (req: Request, res: Response, next: NextFun
   }
 };
 
-/**
- * Controller handler to fetch all user workspaces.
- */
 export const getUserWorkspaces = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = req.user!.userId;
@@ -40,9 +35,6 @@ export const getUserWorkspaces = async (req: Request, res: Response, next: NextF
   }
 };
 
-/**
- * Controller handler to fetch workspace details by ID.
- */
 export const getWorkspaceById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
@@ -62,9 +54,39 @@ export const getWorkspaceById = async (req: Request, res: Response, next: NextFu
   }
 };
 
-/**
- * Controller handler to add a member to a workspace.
- */
+export const updateWorkspace = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+    const workspace = await WorkspaceService.updateWorkspace(id, { name, description });
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Workspace updated successfully',
+      data: { workspace }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteWorkspace = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.userId;
+    await WorkspaceService.deleteWorkspace(id, userId);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Workspace deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const addMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
@@ -75,6 +97,43 @@ export const addMember = async (req: Request, res: Response, next: NextFunction)
       success: true,
       statusCode: 200,
       message: 'Member added to workspace successfully',
+      data: { workspace }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateMemberRole = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, memberId } = req.params;
+    const { role } = req.body as { role: WorkspaceRole };
+    const requesterId = req.user!.userId;
+
+    const workspace = await WorkspaceService.updateMemberRole(id, memberId, role, requesterId);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Member role updated successfully',
+      data: { workspace }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, memberId } = req.params;
+    const requesterId = req.user!.userId;
+
+    const workspace = await WorkspaceService.removeMember(id, memberId, requesterId);
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Member removed from workspace successfully',
       data: { workspace }
     });
   } catch (error) {
